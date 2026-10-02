@@ -1,0 +1,11 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "windowsbridge",
+  "version": "0.1.0",
+  "description": "Operate an authorized Windows computer through OpenAI Secure MCP Tunnel.",
+  "author": {"name": "ZTD38F", "url": "https://github.com/ZTD38F"},
+  "homepage": "https://github.com/ZTD38F/WindowsBridge",
+  "repository": "https://github.com/ZTD38F/WindowsBridge",
+  "license": "MIT",
+  "keywords": ["windows", "mcp", "openai", "powershell", "automation", "remote"]
+}
