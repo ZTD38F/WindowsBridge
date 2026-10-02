@@ -1,0 +1,9 @@
+WindowsBridge v0.1.0
+
+1. Open PowerShell as Administrator.
+2. Run:
+   Set-ExecutionPolicy -Scope Process Bypass -Force
+   irm https://raw.githubusercontent.com/ZTD38F/WindowsBridge/main/install.ps1 -OutFile install.ps1
+   .\install.ps1
+3. Enter the OpenAI Tunnel ID (tunnel_...) and Runtime API key.
+4. In ChatGPT open Settings -> Connectors, select the tunnel, and rescan MCP tools.
