@@ -2,58 +2,63 @@
 
 WindowsBridge is a Windows remote-operations MCP agent for ChatGPT using the official OpenAI Secure MCP Tunnel.
 
-## Status
+## GitHub-only installation
 
-- **v0.1:** manual tunnel configuration; retained as the fallback path.
-- **v0.2 RC:** hardened runtime + one-click bootstrap building blocks. Windows and bootstrap CI are green.
-- **Production one-click is not promoted yet.** A live Windows end-to-end install must pass before the public README points users at a one-line installer.
+WindowsBridge no longer depends on any personal VPS or `*.sonoryx.store` bootstrap service.
 
-The target UX is:
+The software supply chain is:
 
-```powershell
-irm 'https://windowsbridge.sonoryx.store/i/<one-time-token>' | iex
+```text
+GitHub raw install.ps1
+        ↓
+ZTD38F/WindowsBridge GitHub Release → WindowsBridge.exe
+        ↓
+openai/tunnel-client GitHub Release → tunnel-client.exe
+        ↓
+OpenAI Secure MCP Tunnel
+        ↓
+ChatGPT
 ```
 
-The one-time URL will carry only temporary bootstrap authority. Tunnel ID and runtime credentials are provisioned before the laptop install and are never committed to GitHub or typed into PowerShell. Windows may still show the normal UAC approval prompt; WindowsBridge does not bypass UAC.
+Canonical install command:
+
+```powershell
+irm https://raw.githubusercontent.com/ZTD38F/WindowsBridge/main/install.ps1 | iex
+```
+
+The installer self-elevates through the normal Windows UAC prompt, downloads verified GitHub Release assets, installs the SYSTEM startup task, runs `tunnel-client doctor --explain`, and rolls back the executables if validation fails.
+
+### First-time OpenAI credentials
+
+The official tunnel runtime requires both a tunnel ID and a runtime API key. OpenAI documents these as mandatory: the tunnel ID comes from Tunnels management and the runtime key comes from Platform Runtime API keys with Tunnels Read + Use.
+
+WindowsBridge therefore checks, in order:
+
+1. parameters supplied to `install.ps1`;
+2. `WINDOWSBRIDGE_TUNNEL_ID` and `WINDOWSBRIDGE_RUNTIME_API_KEY` environment variables;
+3. an existing DPAPI-protected WindowsBridge installation;
+4. on a genuinely fresh machine, a one-time secure prompt.
+
+GitHub cannot safely publish a private OpenAI runtime key inside a public repository or Release asset. WindowsBridge deliberately does not hard-code or expose that credential.
+
+After the first successful installation, reinstall/update is zero-input because the key is stored with Windows DPAPI LocalMachine.
+
+## Binary releases
+
+GitHub Actions builds a standalone `WindowsBridge.exe` with PyInstaller. The target Windows machine does **not** need Python, pip, winget, or a local source checkout.
+
+Every push to `main` updates the GitHub prerelease tag `edge`. Version tags `v*` produce normal GitHub Releases.
+
+The installer verifies GitHub's SHA-256 digest for:
+
+- `WindowsBridge.exe` from `ZTD38F/WindowsBridge`;
+- the official Windows `tunnel-client` archive from `openai/tunnel-client`.
 
 ## Architecture
 
-`ChatGPT -> OpenAI Secure MCP Tunnel -> tunnel-client.exe -> WindowsBridge MCP -> Windows`
+`ChatGPT -> OpenAI Secure MCP Tunnel -> tunnel-client.exe -> WindowsBridge.exe -> Windows`
 
-The Windows computer establishes the outbound connection; no inbound MCP/RDP/SSH port is required.
-
-## v0.2 hardening already implemented
-
-- `windowsbridge_v2.py` with a minimal allowlisted environment for child commands.
-- Improved credential redaction and a built-in `bridge_self_check` tool.
-- `requirements.lock` for reproducible v0.2 dependency installation.
-- `bootstrap-client.ps1` for validated HTTPS bootstrap retrieval and normal UAC self-elevation.
-- Experimental one-time bootstrap server under `bootstrap/`; intentionally not production-deployed yet.
-- GitHub Actions on Windows and Linux: Python compile/import checks, PowerShell parser checks, bootstrap compile checks, and a committed-secret pattern guard.
-
-## Current fallback install
-
-Until the production one-click gate is complete, the supported fallback remains:
-
-```powershell
-Set-ExecutionPolicy -Scope Process Bypass -Force
-irm https://raw.githubusercontent.com/ZTD38F/WindowsBridge/main/install.ps1 -OutFile install.ps1
-.\install.ps1
-```
-
-This fallback currently asks for an OpenAI Tunnel ID and Runtime API key.
-
-## Release gate for one-click
-
-Before promotion, WindowsBridge must pass all of the following:
-
-1. Pre-provision a Secure MCP Tunnel and least-privilege runtime key.
-2. Align the production bootstrap endpoint and installer contract.
-3. Make bootstrap credentials short-lived, single-use, atomic, no-store, and absent from access logs.
-4. Bootstrap from an immutable commit/tag rather than moving `main`.
-5. Verify the official tunnel-client release digest before installation.
-6. Stage updates and retain the previous working release until tunnel health and startup health both pass.
-7. Test fresh Windows 11 without Python, Windows with existing Python, reinstall/repair, uninstall/reinstall, reboot reconnect, network interruption, expired/used bootstrap links, revoked credentials, and ARM64.
+No inbound MCP, RDP, SSH, or custom WindowsBridge port is required.
 
 ## Main MCP tools
 
@@ -67,8 +72,21 @@ Before promotion, WindowsBridge must pass all of the following:
 
 ## Security model
 
-The installed agent is intended for a privately owned Windows computer. Administrative installation gives the MCP agent machine-level capability, so tunnel credentials are protected separately from normal tool access. The MCP child removes OpenAI/tunnel credentials from its environment, v0.2 narrows the environment inherited by child commands, and file tools block WindowsBridge's own credential configuration.
+The installed agent is intended for an authorized Windows computer and runs as SYSTEM, so it has machine-level capability.
 
-## Repository
+Key protections:
 
-Current development line: **0.2 release candidate**. Do not describe it as production one-click until the release gate above is complete.
+- runtime API key is stored using Windows DPAPI LocalMachine;
+- installation directory ACL is restricted to SYSTEM and local Administrators;
+- the MCP child removes OpenAI/tunnel credential variables from its environment;
+- v0.2 uses an allowlisted child-process environment;
+- WindowsBridge configuration/credential paths are blocked from normal MCP file tools;
+- modifying operations are audited;
+- CI rejects common committed-secret patterns;
+- CI rejects WindowsBridge installation dependencies on the former personal-server hostname.
+
+## Development status
+
+Current line: **0.2 RC**.
+
+Before calling the first-install flow fully zero-input, OpenAI tunnel credentials must already exist outside the public GitHub repository. This is an authentication boundary, not an installer limitation.
