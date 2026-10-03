@@ -1,67 +1,47 @@
-WindowsBridge 0.2 RC — GitHub-only
+WindowsBridge 0.3.0 RC
 
-INSTALL / UPDATE
-----------------
+INSTALL
+-------
 Paste into PowerShell:
 
-irm https://raw.githubusercontent.com/ZTD38F/WindowsBridge/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/ZTD38F/WindowsBridge/stable/install.ps1 | iex
 
-Everything WindowsBridge-related is fetched from GitHub. The installer:
-- self-elevates with normal UAC;
-- pins an immutable ZTD38F/WindowsBridge commit;
-- downloads and verifies uv from astral-sh/uv GitHub Releases;
-- builds an isolated local Python runtime;
-- downloads and verifies OpenAI tunnel-client from GitHub Releases;
-- validates the tunnel;
-- installs SYSTEM autostart;
-- rolls back to the previous source commit if validation fails.
+FIRST INSTALL
+-------------
+1. UAC -> Yes.
+2. OpenAI Tunnels opens.
+   Name: WindowsBridge - <COMPUTERNAME>
+   Copy tunnel_... and paste it into PowerShell.
+3. Runtime API Keys opens.
+   Name: WindowsBridge Runtime - <COMPUTERNAME>
+   Restricted -> Tunnels: Read + Use
+   Paste the key into the hidden prompt.
+4. WindowsBridge installs and waits until the tunnel is READY.
+5. ChatGPT Connectors opens.
+   Name: WindowsBridge - <COMPUTERNAME>
+   Connection: Tunnel
+   Authentication: No authentication (NoAuth)
 
-FIRST INSTALL ONLY
-------------------
-The installer guides the user through all required OpenAI steps.
+AUTO UPDATE
+-----------
+Enabled by default.
+Channel: stable
+Schedule: daily Windows Scheduled Task
+Safety: staging -> readiness check -> activate, with rollback on failure.
 
-STEP 1 — TUNNEL
-It opens:
-https://platform.openai.com/settings/organization/tunnels
-
-Create:
-Name: WindowsBridge
-
-If a workspace selector appears, choose the ChatGPT workspace where you will
-use WindowsBridge.
-
-Copy the resulting tunnel_... ID and paste it into PowerShell.
-
-STEP 2 — RUNTIME API KEY
-It opens:
-https://platform.openai.com/settings/organization/api-keys
-
-Create:
-Name: WindowsBridge Runtime
-Access: Restricted
-Tunnels: Read
-Tunnels: Use
-
-Paste the key into PowerShell. The input is hidden.
-
-STEP 3 — CHATGPT CONNECTOR
-After WindowsBridge passes tunnel validation, the installer opens:
-https://chatgpt.com/#settings/Connectors
-
-Use:
-Name: WindowsBridge
-Connection: Tunnel
-Tunnel: WindowsBridge / the tunnel_... ID
-Authentication: No authentication (NoAuth)
-
-NoAuth is the MCP-server auth mode. The Secure MCP Tunnel itself is still
-authenticated by the Runtime API key.
-
-The key is stored using Windows DPAPI LocalMachine, so later reinstall/update
-reuses it automatically.
-
-No personal VPS or WindowsBridge web server is used.
+CONTROL
+-------
+windowsbridgectl check
+windowsbridgectl status
+windowsbridgectl doctor
+windowsbridgectl logs 200
+windowsbridgectl restart
+windowsbridgectl update
+windowsbridgectl repair
+windowsbridgectl ui
+windowsbridgectl auto-update-enable
+windowsbridgectl auto-update-disable
 
 UNINSTALL
 ---------
-irm https://raw.githubusercontent.com/ZTD38F/WindowsBridge/main/uninstall.ps1 | iex
+irm https://raw.githubusercontent.com/ZTD38F/WindowsBridge/stable/uninstall.ps1 | iex
