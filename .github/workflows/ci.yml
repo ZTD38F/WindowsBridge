@@ -41,20 +41,23 @@ jobs:
           }
           if ($failed) { exit 1 }
 
-  bootstrap:
+  repository-safety:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-python@v7
-        with:
-          python-version: "3.12"
-      - name: Compile bootstrap server
-        run: python -m py_compile bootstrap/server.py
       - name: Secret-pattern guard
         shell: bash
         run: |
           set -euo pipefail
           if grep -RInE --exclude-dir=.git --exclude='*.md' '(sk-[A-Za-z0-9_-]{16,}|github_pat_[A-Za-z0-9_-]{16,}|ghp_[A-Za-z0-9]{16,})' .; then
             echo "Potential credential committed to repository"
+            exit 1
+          fi
+      - name: Reject non-GitHub WindowsBridge download origins
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -RInE --exclude-dir=.git --exclude='*.md' 'sonoryx\.store|windowsbridge\.sonoryx' .; then
+            echo "WindowsBridge installation must not depend on a personal server"
             exit 1
           fi
