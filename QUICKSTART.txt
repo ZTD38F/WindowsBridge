@@ -1,9 +1,28 @@
-WindowsBridge v0.1.0
+WindowsBridge 0.2 RC
 
-1. Open PowerShell as Administrator.
-2. Run:
-   Set-ExecutionPolicy -Scope Process Bypass -Force
-   irm https://raw.githubusercontent.com/ZTD38F/WindowsBridge/main/install.ps1 -OutFile install.ps1
-   .\install.ps1
-3. Enter the OpenAI Tunnel ID (tunnel_...) and Runtime API key.
-4. In ChatGPT open Settings -> Connectors, select the tunnel, and rescan MCP tools.
+INSTALL
+-------
+Paste this one line into PowerShell:
+
+irm https://raw.githubusercontent.com/ZTD38F/WindowsBridge/main/install.ps1 | iex
+
+WindowsBridge will:
+- request normal Windows UAC elevation when needed;
+- download WindowsBridge.exe from ZTD38F/WindowsBridge GitHub Releases;
+- download tunnel-client.exe from the official openai/tunnel-client GitHub Release;
+- verify GitHub SHA-256 asset digests;
+- install the SYSTEM startup task;
+- validate the OpenAI Secure MCP Tunnel.
+
+FIRST INSTALL ONLY
+------------------
+The official OpenAI tunnel runtime requires a Tunnel ID and Runtime API key.
+If WindowsBridge is not already configured and these values are not present in
+WINDOWSBRIDGE_TUNNEL_ID / WINDOWSBRIDGE_RUNTIME_API_KEY, the installer must
+request them once. They are then stored using Windows DPAPI LocalMachine.
+
+No WindowsBridge installation service or personal VPS is used.
+
+UNINSTALL
+---------
+irm https://raw.githubusercontent.com/ZTD38F/WindowsBridge/main/uninstall.ps1 | iex
