@@ -27,6 +27,59 @@ The installer automatically:
 
 No inbound MCP, RDP, SSH, or WindowsBridge-specific port is opened.
 
+## First-time guided setup
+
+On a clean Windows computer the installer walks the user through the OpenAI setup instead of showing unexplained prompts.
+
+### Step 1 — Create the tunnel
+
+The installer automatically opens:
+
+`https://platform.openai.com/settings/organization/tunnels`
+
+Create a tunnel with:
+
+- **Name:** `WindowsBridge`
+- **Workspace:** if OpenAI shows a workspace selector, choose the ChatGPT workspace where WindowsBridge will be used.
+
+Then copy the resulting ID and paste it into the installer. A valid ID looks like:
+
+`tunnel_0123456789abcdef0123456789abcdef`
+
+The installer validates the ID before continuing.
+
+### Step 2 — Create the runtime key
+
+The installer automatically opens:
+
+`https://platform.openai.com/settings/organization/api-keys`
+
+Create:
+
+- **Name:** `WindowsBridge Runtime`
+- **Type/access:** `Restricted`
+- **Tunnels → Read**
+- **Tunnels → Use**
+
+Do **not** use an Admin API key for the long-running WindowsBridge runtime.
+
+Paste the new runtime key into the PowerShell prompt. Input is hidden. WindowsBridge stores it using Windows DPAPI LocalMachine after the tunnel passes validation.
+
+### Step 3 — Add WindowsBridge to ChatGPT
+
+After `tunnel-client doctor --explain` succeeds and the startup task is healthy, the installer automatically opens:
+
+`https://chatgpt.com/#settings/Connectors`
+
+Create/configure the connector as:
+
+- **Name:** `WindowsBridge`
+- **Connection:** `Tunnel`
+- **Tunnel:** select the `WindowsBridge` tunnel or paste its `tunnel_...` ID.
+- **Authentication:** `No authentication` (**NoAuth**)
+
+`No authentication` is the authentication mode between ChatGPT and the MCP server. It does **not** mean the OpenAI Secure MCP Tunnel itself is unauthenticated; the tunnel runtime still uses the restricted Runtime API key.
+
 ## First installation: OpenAI credentials
 
 The official Secure MCP Tunnel requires two values:
