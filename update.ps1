@@ -261,8 +261,9 @@ function Update-Transport([string]$TargetSha) {
     try { $pin = (Invoke-WebRequest -UseBasicParsing $pinUrl).Content.Trim() } catch { return }
     if ($pin -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+$') { throw "Invalid transport pin." }
     $cfg = Get-Content $Config -Raw | ConvertFrom-Json
-    if ([string]$cfg.tunnel_client_release -eq $pin) { return }
-    Log "TRANSPORT_UPDATE $($cfg.tunnel_client_release) -> $pin"
+    $previousTransportRelease = [string]$cfg.tunnel_client_release
+    if ($previousTransportRelease -eq $pin) { return }
+    Log "TRANSPORT_UPDATE $previousTransportRelease -> $pin"
     $arch = if ($env:PROCESSOR_ARCHITECTURE -eq "ARM64") { "arm64" } else { "amd64" }
     $release = Invoke-RestMethod "https://api.github.com/repos/openai/tunnel-client/releases/tags/$pin" -Headers @{"User-Agent"="WindowsBridge-Updater"}
     $name = "tunnel-client-$pin-windows-$arch.zip"
@@ -291,9 +292,10 @@ function Update-Transport([string]$TargetSha) {
         if(-not $ok){
             Stop-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
             Copy-Item $backup $live -Force
-            $cfg.tunnel_client_release = [string](Get-Content $Config -Raw | ConvertFrom-Json).tunnel_client_release
+            $cfg.tunnel_client_release = $previousTransportRelease
+            $cfg | ConvertTo-Json -Depth 10 | Set-Content $Config -Encoding UTF8
             Start-ScheduledTask -TaskName $TaskName
-            throw "Transport update failed; previous binary restored."
+            throw "Transport update failed; previous binary and config restored."
         }
     } finally { Remove-Item $tmpDir -Recurse -Force -ErrorAction SilentlyContinue }
 }
