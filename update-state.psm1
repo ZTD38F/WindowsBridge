@@ -80,6 +80,7 @@ function Write-WindowsBridgeUpdateState {
     $directory = Split-Path -Parent $Path
     New-Item -ItemType Directory -Force -Path $directory | Out-Null
     $temporary = Join-Path $directory (".update-state-" + [guid]::NewGuid().ToString("N") + ".tmp")
+    $backup = Join-Path $directory (".update-state-" + [guid]::NewGuid().ToString("N") + ".bak")
 
     [ordered]@{
         schema_version = 1
@@ -96,12 +97,14 @@ function Write-WindowsBridgeUpdateState {
 
     try {
         if (Test-Path -LiteralPath $Path) {
-            [IO.File]::Replace($temporary, $Path, $null, $true)
+            [IO.File]::Replace($temporary, $Path, $backup, $true)
+            Remove-Item -LiteralPath $backup -Force -ErrorAction SilentlyContinue
         } else {
             [IO.File]::Move($temporary, $Path)
         }
     } finally {
         Remove-Item -LiteralPath $temporary -Force -ErrorAction SilentlyContinue
+        Remove-Item -LiteralPath $backup -Force -ErrorAction SilentlyContinue
     }
 }
 
