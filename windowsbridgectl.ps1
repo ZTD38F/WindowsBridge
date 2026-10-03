@@ -27,6 +27,13 @@ function Require-Admin {
     }
 }
 
+
+if (-not (Test-Admin)) {
+    $args = @("-NoProfile","-ExecutionPolicy","Bypass","-File",('"{0}"' -f $PSCommandPath),"-Command",$Command,"-Lines",$Lines)
+    $p = Start-Process -FilePath "powershell.exe" -Verb RunAs -ArgumentList $args -Wait -PassThru
+    exit $p.ExitCode
+}
+
 function Get-CurrentRelease {
     if (-not (Test-Path $Current)) { throw "WindowsBridge is not installed." }
     $ref = (Get-Content $Current -Raw).Trim()
