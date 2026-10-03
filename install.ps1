@@ -10,7 +10,7 @@ param(
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
-$SelfUrl = "https://raw.githubusercontent.com/ZTD38F/WindowsBridge/$SourceRef/install.ps1"
+$Repo = "ZTD38F/WindowsBridge"
 $Root = Join-Path $env:ProgramData "WindowsBridge"
 $Bin = Join-Path $Root "bin"
 $Logs = Join-Path $Root "logs"
@@ -39,13 +39,31 @@ function ConvertFrom-Secure([Security.SecureString]$Secure) {
     finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr) }
 }
 
+function Resolve-SourceCommit([string]$Ref) {
+    if ($Ref -notmatch '^[A-Za-z0-9._-]{1,80}$') { throw "Invalid SourceRef." }
+
+    try {
+        $commit = Invoke-RestMethod "https://api.github.com/repos/$Repo/commits/$Ref" -Headers @{"User-Agent"="WindowsBridge-Installer"}
+    } catch {
+        throw "Could not resolve WindowsBridge source ref '$Ref' to an immutable GitHub commit: $($_.Exception.Message)"
+    }
+
+    $sha = [string]$commit.sha
+    if ($sha -notmatch '^[0-9a-f]{40}$') { throw "GitHub returned an invalid WindowsBridge commit SHA." }
+    return $sha
+}
+
 function Invoke-Elevated {
+    # Pin the installer before crossing the UAC boundary. The branch may move
+    # between the one-line bootstrap and elevation, but this exact commit cannot.
+    $ResolvedBootstrapRef = Resolve-SourceCommit $SourceRef
+    $selfUrl = "https://raw.githubusercontent.com/$Repo/$ResolvedBootstrapRef/install.ps1"
     $tmp = Join-Path $env:TEMP ("WindowsBridge-install-" + [guid]::NewGuid().ToString("N") + ".ps1")
-    Invoke-WebRequest -UseBasicParsing $SelfUrl -OutFile $tmp
+    Invoke-WebRequest -UseBasicParsing $selfUrl -OutFile $tmp
     if ($TunnelId) { $env:WINDOWSBRIDGE_TUNNEL_ID = $TunnelId }
     if ($RuntimeApiKey) { $env:WINDOWSBRIDGE_RUNTIME_API_KEY = $RuntimeApiKey }
     try {
-        $args = @("-NoProfile","-ExecutionPolicy","Bypass","-File",('"{0}"' -f $tmp),"-SourceRef",$SourceRef)
+        $args = @("-NoProfile","-ExecutionPolicy","Bypass","-File",('"{0}"' -f $tmp),"-SourceRef",$ResolvedBootstrapRef)
         if ($AutoUpdate) { $args += "-AutoUpdate" }
         if ($DisableAutoUpdate) { $args += "-DisableAutoUpdate" }
         $p = Start-Process -FilePath "powershell.exe" -Verb RunAs -ArgumentList $args -Wait -PassThru
@@ -195,8 +213,6 @@ function Show-ConnectorSetup([string]$ResolvedTunnelId) {
 
 if (-not (Test-Administrator)) { Invoke-Elevated }
 
-if ($SourceRef -notmatch '^[A-Za-z0-9._-]{1,80}$') { throw "Invalid SourceRef." }
-
 New-Item -ItemType Directory -Force -Path $Root,$Bin,$Logs,$Releases,$Runtime,$Cache | Out-Null
 
 $existing = Get-ExistingConfig
@@ -220,9 +236,7 @@ if ([string]::IsNullOrWhiteSpace($RuntimeApiKey)) { throw "Runtime API key is re
 $NeedsConnectorSetup = (-not $AutoUpdate) -and ((-not $existing) -or ($PreviousTunnelId -ne $TunnelId))
 
 Write-Host "Resolving immutable WindowsBridge commit from GitHub..."
-$commit = Invoke-RestMethod "https://api.github.com/repos/ZTD38F/WindowsBridge/commits/$SourceRef" -Headers @{"User-Agent"="WindowsBridge-Installer"}
-$ResolvedRef = [string]$commit.sha
-if ($ResolvedRef -notmatch '^[0-9a-f]{40}$') { throw "Could not resolve a GitHub commit SHA." }
+$ResolvedRef = Resolve-SourceCommit $SourceRef
 $RawBase = "https://raw.githubusercontent.com/ZTD38F/WindowsBridge/$ResolvedRef"
 
 $stage = Join-Path $Releases (".stage-" + [guid]::NewGuid().ToString("N"))

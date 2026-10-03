@@ -79,10 +79,18 @@ jobs:
             'WindowsBridge Auto Update',
             'UV_PYTHON_INSTALL_DIR',
             'management\update.ps1',
-            'management\windowsbridgectl.ps1'
+            'management\windowsbridgectl.ps1',
+            'function Resolve-SourceCommit',
+            '$ResolvedBootstrapRef = Resolve-SourceCommit $SourceRef',
+            'raw.githubusercontent.com/$Repo/$ResolvedBootstrapRef/install.ps1',
+            '"-SourceRef",$ResolvedBootstrapRef'
           )
           foreach ($value in $requiredInstaller) {
             if (-not $installer.Contains($value)) { throw "Missing installer safety contract: $value" }
+          }
+
+          if ($installer.Contains('raw.githubusercontent.com/ZTD38F/WindowsBridge/$SourceRef/install.ps1')) {
+            throw "Elevation bootstrap must not redownload from a mutable source ref."
           }
 
           if (-not $updater.Contains('commits/$Channel')) { throw "Updater must resolve a channel to an immutable Git commit." }
