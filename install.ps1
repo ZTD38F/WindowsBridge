@@ -21,6 +21,8 @@ $Config = Join-Path $Root "config.json"
 $Current = Join-Path $Root "current.txt"
 $Launch = Join-Path $Root "launch.ps1"
 $UpdateScript = Join-Path $Root "update.ps1"
+$UpdateStateModule = Join-Path $Root "update-state.psm1"
+$UpdateState = Join-Path $Root "update-state.json"
 $ControlScript = Join-Path $env:SystemRoot "System32\windowsbridgectl.ps1"
 $ControlCmd = Join-Path $env:SystemRoot "System32\windowsbridgectl.cmd"
 $TaskName = "WindowsBridge"
@@ -250,6 +252,7 @@ try {
     Invoke-WebRequest -UseBasicParsing "$RawBase/windowsbridge.py" -OutFile (Join-Path $stage "app\windowsbridge.py")
     Invoke-WebRequest -UseBasicParsing "$RawBase/requirements.lock" -OutFile (Join-Path $stage "app\requirements.lock")
     Invoke-WebRequest -UseBasicParsing "$RawBase/update.ps1" -OutFile (Join-Path $stage "management\update.ps1")
+    Invoke-WebRequest -UseBasicParsing "$RawBase/update-state.psm1" -OutFile (Join-Path $stage "management\update-state.psm1")
     Invoke-WebRequest -UseBasicParsing "$RawBase/windowsbridgectl.ps1" -OutFile (Join-Path $stage "management\windowsbridgectl.ps1")
 
     Write-Host "Downloading verified uv from GitHub Releases..."
@@ -398,9 +401,15 @@ try {
     if ($state -notin @("Running","Ready")) { throw "WindowsBridge startup task is not healthy: $state" }
 
     Copy-Item (Join-Path $releaseDir "management\update.ps1") $UpdateScript -Force
+    Copy-Item (Join-Path $releaseDir "management\update-state.psm1") $UpdateStateModule -Force
     Copy-Item (Join-Path $releaseDir "management\windowsbridgectl.ps1") $ControlScript -Force
     $controlCmdContent = '@echo off' + [Environment]::NewLine + 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%SystemRoot%\System32\windowsbridgectl.ps1" %*'
     Set-Content $ControlCmd $controlCmdContent -Encoding ASCII
+
+    if (-not $AutoUpdate) {
+        Import-Module $UpdateStateModule -Force
+        Write-WindowsBridgeUpdateState -Path $UpdateState -State "COMMITTED" -GenerationId ([guid]::NewGuid().ToString("N")) -UpdateClass "NONE" -CurrentGeneration $ResolvedRef -PreviousGeneration $previousRef -Reason "installation_completed"
+    }
 
     if (-not $DisableAutoUpdate) {
         Stop-ScheduledTask -TaskName $AutoUpdateTaskName -ErrorAction SilentlyContinue
