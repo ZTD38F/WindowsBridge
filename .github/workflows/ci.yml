@@ -23,6 +23,9 @@ jobs:
       - name: Compile WindowsBridge
         shell: pwsh
         run: python -m py_compile windowsbridge.py http_runtime.py supervisor.py
+      - name: Exercise atomic generation routing
+        shell: pwsh
+        run: python -m unittest discover -s tests -v
       - name: Verify MCPServer import
         shell: pwsh
         run: python -c "from mcp.server import MCPServer; print('MCPServer OK')"
