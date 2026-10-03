@@ -26,6 +26,7 @@ from typing import Any
 
 import psutil
 from mcp.server import MCPServer
+from mcp.types import ToolAnnotations
 
 if sys.platform != "win32":
     raise RuntimeError("WindowsBridge only runs on Windows")
@@ -34,6 +35,38 @@ import winreg
 
 VERSION = "0.2.0"
 mcp = MCPServer("WindowsBridge")
+
+
+READ_ONLY_CLOSED = ToolAnnotations(
+    read_only_hint=True,
+    destructive_hint=False,
+    idempotent_hint=True,
+    open_world_hint=False,
+)
+READ_ONLY_OPEN = ToolAnnotations(
+    read_only_hint=True,
+    destructive_hint=False,
+    idempotent_hint=True,
+    open_world_hint=True,
+)
+WRITE_SAFE = ToolAnnotations(
+    read_only_hint=False,
+    destructive_hint=False,
+    idempotent_hint=False,
+    open_world_hint=False,
+)
+WRITE_DESTRUCTIVE = ToolAnnotations(
+    read_only_hint=False,
+    destructive_hint=True,
+    idempotent_hint=False,
+    open_world_hint=False,
+)
+EXECUTE_TOOL = ToolAnnotations(
+    read_only_hint=False,
+    destructive_hint=True,
+    idempotent_hint=False,
+    open_world_hint=True,
+)
 
 # The tunnel credential is needed by tunnel-client, not by the MCP child.
 # Remove inherited secrets before any shell/process tool can see them.
@@ -83,6 +116,21 @@ def _truncate(value: str, limit: int = MAX_CAPTURE) -> tuple[str, bool]:
     return _redact(raw[:limit].decode("utf-8", errors="replace") + "\n…[truncated]"), True
 
 
+def _rotate_log(path: Path, max_bytes: int = 10 * 1024 * 1024, keep: int = 5) -> None:
+    try:
+        if not path.exists() or path.stat().st_size <= max_bytes:
+            return
+        for index in range(keep, 0, -1):
+            src = path if index == 1 else Path(f"{path}.{index - 1}")
+            dst = Path(f"{path}.{index}")
+            if src.exists():
+                if dst.exists():
+                    dst.unlink()
+                src.replace(dst)
+    except OSError:
+        pass
+
+
 def _audit(tool: str, target: str, result: str = "ok", details: dict[str, Any] | None = None) -> None:
     def clean(obj: Any) -> Any:
         if isinstance(obj, str):
@@ -102,6 +150,7 @@ def _audit(tool: str, target: str, result: str = "ok", details: dict[str, Any] |
     })
     try:
         AUDIT_LOG.parent.mkdir(parents=True, exist_ok=True)
+        _rotate_log(AUDIT_LOG)
         with AUDIT_LOG.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(record, ensure_ascii=False, separators=(",", ":")) + "\n")
     except OSError:
@@ -251,7 +300,7 @@ def _powershell(script: str, timeout: int = 120, cwd: str | None = None) -> dict
     )
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY_CLOSED)
 def machine_info() -> dict[str, Any]:
     vm = psutil.virtual_memory()
     drives = []
@@ -303,7 +352,7 @@ def machine_info() -> dict[str, Any]:
     }
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY_CLOSED)
 def file_stat(path: str) -> dict[str, Any]:
     p = _resolve_existing(path)
     st = p.stat()
@@ -317,7 +366,7 @@ def file_stat(path: str) -> dict[str, Any]:
     }
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY_CLOSED)
 def list_files(path: str = ".", limit: int = 500, include_hidden: bool = True) -> dict[str, Any]:
     target = _resolve_existing(path)
     if not target.is_dir():
@@ -344,7 +393,7 @@ def list_files(path: str = ".", limit: int = 500, include_hidden: bool = True) -
     return {"path": str(target), "entries": entries, "truncated": len(entries) < len(items)}
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY_CLOSED)
 def read_text(path: str, max_bytes: int = 262144) -> dict[str, Any]:
     p = _resolve_existing(path)
     if not p.is_file():
@@ -361,7 +410,7 @@ def read_text(path: str, max_bytes: int = 262144) -> dict[str, Any]:
     }
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY_CLOSED)
 def read_file(path: str, offset: int = 0, length: int = 1000, tail: bool = False) -> dict[str, Any]:
     p = _resolve_existing(path)
     if not p.is_file():
@@ -388,7 +437,7 @@ def read_file(path: str, offset: int = 0, length: int = 1000, tail: bool = False
     }
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY_CLOSED)
 def read_binary_base64(path: str, max_bytes: int = MAX_BINARY_BYTES) -> dict[str, Any]:
     p = _resolve_existing(path)
     if not p.is_file():
@@ -405,7 +454,7 @@ def read_binary_base64(path: str, max_bytes: int = MAX_BINARY_BYTES) -> dict[str
     }
 
 
-@mcp.tool()
+@mcp.tool(annotations=WRITE_DESTRUCTIVE)
 def write_text(path: str, content: str, expected_sha256: str | None = None) -> dict[str, Any]:
     p = _resolve_write(path)
     result = _atomic_write(p, content.encode("utf-8"), expected_sha256)
@@ -413,7 +462,7 @@ def write_text(path: str, content: str, expected_sha256: str | None = None) -> d
     return result
 
 
-@mcp.tool()
+@mcp.tool(annotations=WRITE_DESTRUCTIVE)
 def write_binary_base64(path: str, base64_data: str, expected_sha256: str | None = None) -> dict[str, Any]:
     data = base64.b64decode(base64_data, validate=True)
     if len(data) > MAX_BINARY_BYTES:
@@ -424,7 +473,7 @@ def write_binary_base64(path: str, base64_data: str, expected_sha256: str | None
     return result
 
 
-@mcp.tool()
+@mcp.tool(annotations=WRITE_DESTRUCTIVE)
 def edit_text(path: str, old_text: str, new_text: str, expected_replacements: int = 1, expected_sha256: str | None = None) -> dict[str, Any]:
     p = _resolve_existing(path)
     text = p.read_text(encoding="utf-8", errors="strict")
@@ -437,7 +486,7 @@ def edit_text(path: str, old_text: str, new_text: str, expected_replacements: in
     return result
 
 
-@mcp.tool()
+@mcp.tool(annotations=WRITE_SAFE)
 def make_directory(path: str) -> dict[str, Any]:
     p = _resolve_write(path)
     p.mkdir(parents=True, exist_ok=True)
@@ -445,7 +494,7 @@ def make_directory(path: str) -> dict[str, Any]:
     return {"path": str(p), "created": True}
 
 
-@mcp.tool()
+@mcp.tool(annotations=WRITE_DESTRUCTIVE)
 def move_path(source: str, destination: str) -> dict[str, Any]:
     src = _resolve_existing(source)
     dst = _resolve_write(destination)
@@ -455,7 +504,7 @@ def move_path(source: str, destination: str) -> dict[str, Any]:
     return {"source": str(src), "destination": str(dst)}
 
 
-@mcp.tool()
+@mcp.tool(annotations=WRITE_SAFE)
 def copy_path(source: str, destination: str, overwrite: bool = False) -> dict[str, Any]:
     src = _resolve_existing(source)
     dst = _resolve_write(destination)
@@ -470,7 +519,7 @@ def copy_path(source: str, destination: str, overwrite: bool = False) -> dict[st
     return {"source": str(src), "destination": str(dst)}
 
 
-@mcp.tool()
+@mcp.tool(annotations=WRITE_DESTRUCTIVE)
 def delete_path(path: str, recursive: bool = False) -> dict[str, Any]:
     p = _resolve_existing(path)
     if p.is_dir():
@@ -484,7 +533,7 @@ def delete_path(path: str, recursive: bool = False) -> dict[str, Any]:
     return {"path": str(p), "deleted": True}
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY_CLOSED)
 def search_files(root: str, pattern: str = "*", max_results: int = 500, max_depth: int = 20) -> dict[str, Any]:
     base = _resolve_existing(root)
     if not base.is_dir():
@@ -511,7 +560,7 @@ def search_files(root: str, pattern: str = "*", max_results: int = 500, max_dept
     return {"root": str(base), "results": results, "truncated": False}
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY_CLOSED)
 def search_text(root: str, query: str, glob: str = "*", regex: bool = False, case_sensitive: bool = False, max_results: int = 500) -> dict[str, Any]:
     base = _resolve_existing(root)
     flags = 0 if case_sensitive else re.IGNORECASE
@@ -538,7 +587,7 @@ def search_text(root: str, query: str, glob: str = "*", regex: bool = False, cas
     return {"results": results, "truncated": False}
 
 
-@mcp.tool()
+@mcp.tool(annotations=EXECUTE_TOOL)
 def run_command(argv: list[str], cwd: str | None = None, timeout_seconds: int = 120) -> dict[str, Any]:
     started = time.monotonic()
     result = _run(argv, cwd=cwd, timeout=timeout_seconds)
@@ -547,7 +596,7 @@ def run_command(argv: list[str], cwd: str | None = None, timeout_seconds: int = 
     return result
 
 
-@mcp.tool()
+@mcp.tool(annotations=EXECUTE_TOOL)
 def powershell(script: str, cwd: str | None = None, timeout_seconds: int = 120) -> dict[str, Any]:
     result = _powershell(script, timeout=timeout_seconds, cwd=cwd)
     _audit("powershell", "script", result="timeout" if result["timed_out"] else ("ok" if result["exit_code"] == 0 else "error"), details={"script_chars": len(script)})
@@ -597,7 +646,7 @@ def _session_info(session: Session) -> dict[str, Any]:
     }
 
 
-@mcp.tool()
+@mcp.tool(annotations=WRITE_SAFE)
 def start_process(argv: list[str], cwd: str | None = None) -> dict[str, Any]:
     with _SESSIONS_GUARD:
         live = [s for s in _SESSIONS.values() if s.proc.poll() is None]
@@ -633,13 +682,13 @@ def _get_session(session_id: str) -> Session:
         raise KeyError("PROCESS_SESSION_NOT_FOUND")
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY_CLOSED)
 def list_sessions() -> dict[str, Any]:
     with _SESSIONS_GUARD:
         return {"sessions": [_session_info(s) for s in _SESSIONS.values()]}
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY_CLOSED)
 def read_process_output(session_id: str, max_lines: int = 200) -> dict[str, Any]:
     session = _get_session(session_id)
     max_lines = max(1, min(int(max_lines), 2000))
@@ -660,7 +709,7 @@ def read_process_output(session_id: str, max_lines: int = 200) -> dict[str, Any]
     return result
 
 
-@mcp.tool()
+@mcp.tool(annotations=EXECUTE_TOOL)
 def send_process_input(session_id: str, data: str) -> dict[str, Any]:
     session = _get_session(session_id)
     if session.proc.poll() is not None:
@@ -671,7 +720,7 @@ def send_process_input(session_id: str, data: str) -> dict[str, Any]:
     return _session_info(session)
 
 
-@mcp.tool()
+@mcp.tool(annotations=WRITE_DESTRUCTIVE)
 def kill_process(session_id: str, force: bool = False) -> dict[str, Any]:
     session = _get_session(session_id)
     if session.proc.poll() is None:
@@ -688,7 +737,7 @@ def kill_process(session_id: str, force: bool = False) -> dict[str, Any]:
     return _session_info(session)
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY_CLOSED)
 def process_list(limit: int = 300) -> dict[str, Any]:
     limit = max(1, min(int(limit), 3000))
     items = []
@@ -712,7 +761,7 @@ def process_list(limit: int = 300) -> dict[str, Any]:
     return {"processes": items[:limit], "count": len(items), "truncated": len(items) > limit}
 
 
-@mcp.tool()
+@mcp.tool(annotations=WRITE_DESTRUCTIVE)
 def terminate_pid(pid: int, force: bool = False) -> dict[str, Any]:
     proc = psutil.Process(int(pid))
     if force:
@@ -728,7 +777,7 @@ def terminate_pid(pid: int, force: bool = False) -> dict[str, Any]:
     return {"pid": int(pid), "terminated": True, "exit_code": code}
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY_CLOSED)
 def service_list(limit: int = 1000) -> dict[str, Any]:
     services = []
     for svc in psutil.win_service_iter():
@@ -749,7 +798,7 @@ def service_list(limit: int = 1000) -> dict[str, Any]:
     return {"services": services[:limit], "count": len(services), "truncated": len(services) > limit}
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY_CLOSED)
 def service_status(name: str) -> dict[str, Any]:
     svc = psutil.win_service_get(name)
     data = svc.as_dict()
@@ -773,17 +822,17 @@ def _service_action(name: str, action: str) -> dict[str, Any]:
     return {"service": name, "action": action, **result}
 
 
-@mcp.tool()
+@mcp.tool(annotations=WRITE_SAFE)
 def service_start(name: str) -> dict[str, Any]:
     return _service_action(name, "start")
 
 
-@mcp.tool()
+@mcp.tool(annotations=WRITE_DESTRUCTIVE)
 def service_stop(name: str) -> dict[str, Any]:
     return _service_action(name, "stop")
 
 
-@mcp.tool()
+@mcp.tool(annotations=WRITE_DESTRUCTIVE)
 def service_restart(name: str) -> dict[str, Any]:
     stop = _service_action(name, "stop")
     time.sleep(1)
@@ -812,7 +861,7 @@ def _registry_root(root: str) -> Any:
         raise ValueError(f"unsupported registry root: {root}")
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY_CLOSED)
 def registry_get(root: str, path: str, value_name: str | None = None) -> dict[str, Any]:
     hive = _registry_root(root)
     with winreg.OpenKey(hive, path, 0, winreg.KEY_READ) as key:
@@ -839,7 +888,7 @@ def registry_get(root: str, path: str, value_name: str | None = None) -> dict[st
         return {"root": root, "path": path, "values": values, "subkeys": subkeys}
 
 
-@mcp.tool()
+@mcp.tool(annotations=WRITE_DESTRUCTIVE)
 def registry_set(root: str, path: str, value_name: str, value: Any, value_type: str = "REG_SZ") -> dict[str, Any]:
     hive = _registry_root(root)
     types = {
@@ -865,7 +914,7 @@ def registry_set(root: str, path: str, value_name: str, value: Any, value_type: 
     return {"root": root, "path": path, "value_name": value_name, "updated": True}
 
 
-@mcp.tool()
+@mcp.tool(annotations=WRITE_DESTRUCTIVE)
 def registry_delete(root: str, path: str, value_name: str | None = None, delete_key: bool = False) -> dict[str, Any]:
     hive = _registry_root(root)
     if delete_key:
@@ -879,14 +928,14 @@ def registry_delete(root: str, path: str, value_name: str | None = None, delete_
     return {"root": root, "path": path, "deleted": True}
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY_CLOSED)
 def event_log(log_name: str = "System", query: str = "*", max_events: int = 100) -> dict[str, Any]:
     max_events = max(1, min(int(max_events), 1000))
     result = _run(["wevtutil.exe", "qe", log_name, f"/q:{query}", f"/c:{max_events}", "/rd:true", "/f:text"], timeout=120)
     return {"log": log_name, "query": query, **result}
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY_CLOSED)
 def scheduled_tasks(query: str = "", limit: int = 500) -> dict[str, Any]:
     result = _run(["schtasks.exe", "/Query", "/FO", "CSV", "/V"], timeout=120)
     if result["exit_code"] != 0:
@@ -903,7 +952,7 @@ def scheduled_tasks(query: str = "", limit: int = 500) -> dict[str, Any]:
     return {"tasks": rows, "count": len(rows), "source_truncated": result.get("stdout_truncated", False)}
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY_CLOSED)
 def installed_apps(limit: int = 1000) -> dict[str, Any]:
     locations = [
         (winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"),
@@ -943,7 +992,7 @@ def installed_apps(limit: int = 1000) -> dict[str, Any]:
     return {"apps": items[:limit], "count": len(items), "truncated": len(items) > limit}
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY_CLOSED)
 def network_info() -> dict[str, Any]:
     addrs = psutil.net_if_addrs()
     stats = psutil.net_if_stats()
@@ -960,7 +1009,7 @@ def network_info() -> dict[str, Any]:
     return {"interfaces": data}
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY_CLOSED)
 def listening_ports(limit: int = 1000) -> dict[str, Any]:
     items = []
     for conn in psutil.net_connections(kind="inet"):
@@ -979,7 +1028,7 @@ def listening_ports(limit: int = 1000) -> dict[str, Any]:
     return {"listeners": items[:limit], "count": len(items), "truncated": len(items) > limit}
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY_OPEN)
 def tcp_probe(host: str, port: int, timeout_seconds: float = 5.0) -> dict[str, Any]:
     started = time.monotonic()
     try:
@@ -989,7 +1038,7 @@ def tcp_probe(host: str, port: int, timeout_seconds: float = 5.0) -> dict[str, A
         return {"host": host, "port": int(port), "ok": False, "latency_ms": round((time.monotonic() - started) * 1000, 2), "error": str(exc)}
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY_OPEN)
 def http_probe(url: str, timeout_seconds: float = 10.0) -> dict[str, Any]:
     started = time.monotonic()
     req = urllib.request.Request(url, method="GET", headers={"User-Agent": f"WindowsBridge/{VERSION}"})
@@ -1007,7 +1056,7 @@ def http_probe(url: str, timeout_seconds: float = 10.0) -> dict[str, Any]:
         return {"url": url, "ok": False, "latency_ms": round((time.monotonic() - started) * 1000, 2), "error": str(exc)}
 
 
-@mcp.tool()
+@mcp.tool(annotations=READ_ONLY_CLOSED)
 def bridge_self_check() -> dict[str, Any]:
     checks = {
         "platform_windows": sys.platform == "win32",
