@@ -1,160 +1,153 @@
 # WindowsBridge
 
-WindowsBridge is a Windows remote-operations MCP agent for ChatGPT using the official OpenAI Secure MCP Tunnel.
+WindowsBridge gives ChatGPT controlled access to an authorized Windows computer through the official OpenAI Secure MCP Tunnel.
 
-## One-line GitHub installation
+## Install
 
-WindowsBridge has **no dependency on a personal VPS or WindowsBridge web server**.
-
-Paste one line into PowerShell:
+Stable one-line install:
 
 ```powershell
-irm https://raw.githubusercontent.com/ZTD38F/WindowsBridge/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/ZTD38F/WindowsBridge/stable/install.ps1 | iex
 ```
 
-The installer automatically:
+The installer requests normal UAC elevation and then guides a first-time user through the only manual OpenAI steps:
 
-1. requests normal Windows UAC elevation when required;
-2. resolves `main` to an immutable GitHub commit SHA;
-3. downloads `windowsbridge.py` and `requirements.lock` from that exact commit;
-4. downloads `uv` from the official `astral-sh/uv` GitHub Release and verifies its GitHub SHA-256 digest;
-5. creates an isolated Python 3.12 environment and installs pinned WindowsBridge dependencies;
-6. downloads the official `openai/tunnel-client` Windows archive from GitHub Releases and verifies its GitHub SHA-256 digest;
-7. runs `tunnel-client doctor --explain`;
-8. stores the runtime credential with Windows DPAPI LocalMachine;
-9. registers WindowsBridge as a SYSTEM startup task;
-10. preserves the previous working source commit for rollback if an update fails.
+1. **Tunnel**
+   - opens `https://platform.openai.com/settings/organization/tunnels`
+   - recommended name: `WindowsBridge - <COMPUTERNAME>`
+   - paste the resulting `tunnel_...` ID back into PowerShell
+2. **Runtime API key**
+   - opens `https://platform.openai.com/settings/organization/api-keys`
+   - recommended name: `WindowsBridge Runtime - <COMPUTERNAME>`
+   - Restricted key with only **Tunnels → Read + Use**
+   - paste it into the hidden PowerShell prompt
+3. **ChatGPT connector**
+   - after the local tunnel is actually ready, opens `https://chatgpt.com/#settings/Connectors`
+   - Name: `WindowsBridge - <COMPUTERNAME>`
+   - Connection: `Tunnel`
+   - Authentication: `No authentication` (NoAuth)
 
-No inbound MCP, RDP, SSH, or WindowsBridge-specific port is opened.
+NoAuth is the MCP-server authentication mode. The Secure MCP Tunnel itself remains authenticated by the restricted runtime API key.
 
-## First-time guided setup
+## What installation does automatically
 
-On a clean Windows computer the installer walks the user through the OpenAI setup instead of showing unexplained prompts.
+- resolves the stable channel to an immutable Git commit;
+- stages the complete WindowsBridge release before activation;
+- downloads `uv` from official GitHub Releases and verifies SHA-256;
+- keeps the managed Python runtime and cache under `C:\ProgramData\WindowsBridge`;
+- installs pinned Python dependencies;
+- downloads the official OpenAI `tunnel-client` and verifies its GitHub SHA-256 digest;
+- stores each release's tunnel-client alongside that release so rollback is complete;
+- protects the runtime key with Windows DPAPI LocalMachine;
+- applies ACLs by Windows SIDs, not localized account names;
+- creates the SYSTEM startup task;
+- prevents duplicate tunnel runtimes with a global mutex;
+- waits for `/readyz`, not merely process startup or `doctor`;
+- rotates tunnel and audit logs;
+- keeps recent releases for rollback;
+- installs `windowsbridgectl`;
+- enables safe daily automatic updates by default.
 
-### Step 1 — Create the tunnel
+No inbound MCP, RDP, SSH, or WindowsBridge-specific public port is opened.
 
-The installer automatically opens:
+## Automatic updates
 
-`https://platform.openai.com/settings/organization/tunnels`
+WindowsBridge follows the **stable** GitHub branch, never unreleased `main` by default.
 
-Create a tunnel with:
+A SYSTEM Scheduled Task checks once per day. An update is applied only through the same staged installer and must pass tunnel readiness; otherwise the previous release pointer is restored.
 
-- **Name:** `WindowsBridge`
-- **Workspace:** if OpenAI shows a workspace selector, choose the ChatGPT workspace where WindowsBridge will be used.
+Useful commands:
 
-Then copy the resulting ID and paste it into the installer. A valid ID looks like:
+```powershell
+windowsbridgectl check
+windowsbridgectl status
+windowsbridgectl doctor
+windowsbridgectl logs 200
+windowsbridgectl restart
+windowsbridgectl update
+windowsbridgectl repair
+windowsbridgectl ui
+windowsbridgectl auto-update-enable
+windowsbridgectl auto-update-disable
+```
 
-`tunnel_0123456789abcdef0123456789abcdef`
+To opt out when installing:
 
-The installer validates the ID before continuing.
+```powershell
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/ZTD38F/WindowsBridge/stable/install.ps1))) -DisableAutoUpdate
+```
 
-### Step 2 — Create the runtime key
-
-The installer automatically opens:
-
-`https://platform.openai.com/settings/organization/api-keys`
-
-Create:
-
-- **Name:** `WindowsBridge Runtime`
-- **Type/access:** `Restricted`
-- **Tunnels → Read**
-- **Tunnels → Use**
-
-Do **not** use an Admin API key for the long-running WindowsBridge runtime.
-
-Paste the new runtime key into the PowerShell prompt. Input is hidden. WindowsBridge stores it using Windows DPAPI LocalMachine after the tunnel passes validation.
-
-### Step 3 — Add WindowsBridge to ChatGPT
-
-After `tunnel-client doctor --explain` succeeds and the startup task is healthy, the installer automatically opens:
-
-`https://chatgpt.com/#settings/Connectors`
-
-Create/configure the connector as:
-
-- **Name:** `WindowsBridge`
-- **Connection:** `Tunnel`
-- **Tunnel:** select the `WindowsBridge` tunnel or paste its `tunnel_...` ID.
-- **Authentication:** `No authentication` (**NoAuth**)
-
-`No authentication` is the authentication mode between ChatGPT and the MCP server. It does **not** mean the OpenAI Secure MCP Tunnel itself is unauthenticated; the tunnel runtime still uses the restricted Runtime API key.
-
-## First installation: OpenAI credentials
-
-The official Secure MCP Tunnel requires two values:
-
-- `CONTROL_PLANE_TUNNEL_ID` — an existing OpenAI tunnel ID;
-- `CONTROL_PLANE_API_KEY` — a runtime API key whose principal has Tunnels Read + Use.
-
-WindowsBridge checks for these values from installer parameters, environment variables, or an existing DPAPI-protected installation. On a completely fresh machine, if they do not already exist, it asks for them once.
-
-A public GitHub repository cannot securely contain a private OpenAI runtime API key, so WindowsBridge intentionally does not hard-code one. After the first successful setup, reinstall/update is zero-input because the credential is already protected locally with DPAPI.
-
-## GitHub supply chain
+## Architecture
 
 ```text
-raw.githubusercontent.com/ZTD38F/WindowsBridge
-              │
-              ├─ install.ps1
-              │
-              └─ immutable source commit
-                       │
-                       ├─ windowsbridge.py
-                       └─ requirements.lock
-
-github.com/astral-sh/uv/releases
-              └─ verified uv bootstrap
-
-github.com/openai/tunnel-client/releases
-              └─ verified tunnel-client
-
-Windows → OpenAI Secure MCP Tunnel → ChatGPT
+ChatGPT
+  ↓
+OpenAI Secure MCP Tunnel
+  ↓
+tunnel-client
+  ↓
+WindowsBridge MCP
+  ↓
+Windows
 ```
 
-The repository also builds a standalone `WindowsBridge.exe` as a GitHub Actions artifact for validation and future packaging, but production installation does not depend on GitHub Release publishing permissions.
+Current core exposes 40 typed MCP tools for system information, files, execution, persistent processes, services, registry, Event Log, scheduled tasks, installed applications, and networking.
 
-## Main MCP tools
+Every tool has MCP safety annotations describing read-only, destructive, idempotent, and open-world behavior. Arbitrary `run_command` and `powershell` remain explicit full-control escape hatches and run with the bridge's OS privileges.
 
-- System: `machine_info`, `bridge_self_check`, `installed_apps`, `scheduled_tasks`, `event_log`
-- Files: metadata, listing, text/binary read-write, search, copy/move/delete, atomic edits
-- Execution: `run_command`, `powershell`
-- Persistent processes: start/read/input/kill/list sessions and terminate PID
-- Services: list/status/start/stop/restart
-- Registry: get/set/delete
-- Network: interfaces, listening ports, TCP/HTTP probes
+## Local health and control
+
+The tunnel health/admin listener is loopback-only:
+
+`http://127.0.0.1:18765`
+
+WindowsBridge uses:
+
+- `/healthz` for liveness;
+- `/readyz` for the installation/update success gate;
+- `/ui` for local tunnel diagnostics.
+
+Use `windowsbridgectl ui` to open the UI.
 
 ## Security model
 
-WindowsBridge runs as SYSTEM on an authorized Windows computer, so it deliberately has machine-level capability.
+WindowsBridge currently runs its core runtime as SYSTEM because the intended use case is full administration of an authorized private Windows machine.
 
-Controls include:
+Key controls include:
 
-- Windows DPAPI LocalMachine for the runtime API key;
-- SYSTEM/Administrators-only ACL on the installation directory;
-- OpenAI/tunnel credentials removed from the MCP child environment;
+- DPAPI LocalMachine protection for the OpenAI runtime key;
+- ACLs restricted using SYSTEM and BUILTIN\Administrators SIDs;
+- OpenAI/tunnel secrets removed from MCP child environments;
 - allowlisted environment inherited by arbitrary child processes;
-- credential/config paths protected from normal MCP filesystem tools;
-- mutation audit logging;
-- immutable GitHub source commit per install;
-- SHA-256 verification of GitHub Release bootstrap assets;
-- staged install and rollback pointer;
-- CI compilation and PowerShell parser checks;
-- CI secret-pattern guard;
-- CI guard rejecting personal-server dependencies.
+- protected WindowsBridge credential/config paths;
+- mutation audit logging with rotation;
+- verified GitHub release assets;
+- immutable source commit per activated version;
+- transactional release directories and rollback;
+- one active local tunnel runtime enforced by mutex;
+- CI PowerShell parsing, Python compilation, secret guards, onboarding-contract checks, tool-annotation checks, and Windows artifact builds.
 
-## Update
+## Update channels
 
-Run the same one-line command again. Existing OpenAI tunnel credentials are reused automatically.
+- `stable`: normal installations and automatic updates.
+- `main`: development only.
+
+To test main explicitly:
+
+```powershell
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/ZTD38F/WindowsBridge/main/install.ps1))) -SourceRef main
+```
 
 ## Uninstall
 
 ```powershell
-irm https://raw.githubusercontent.com/ZTD38F/WindowsBridge/main/uninstall.ps1 | iex
+irm https://raw.githubusercontent.com/ZTD38F/WindowsBridge/stable/uninstall.ps1 | iex
 ```
 
-The local WindowsBridge installation is removed. The OpenAI tunnel object and Platform runtime API key are intentionally left untouched.
+Uninstall removes WindowsBridge, its runtime task, update task, and global control command. It intentionally does not delete the OpenAI tunnel object or Platform runtime API key.
 
 ## Status
 
-Current development line: **0.2 RC**.
+Current line: **0.3.0 RC**.
+
+The repository and Windows GitHub Actions are tested. A real fresh-machine Windows end-to-end installation is still required before calling 0.3.0 production-final.
