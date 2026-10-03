@@ -14,6 +14,13 @@ $Logs = Join-Path $Root "logs"
 $Log = Join-Path $Logs "update.log"
 $Repo = "ZTD38F/WindowsBridge"
 $MutexName = "Global\WindowsBridgeUpdate"
+$StatePath = Join-Path $Root "update-state.json"
+$StateModule = Join-Path $PSScriptRoot "update-state.psm1"
+
+if (-not (Test-Path -LiteralPath $StateModule)) {
+    throw "WindowsBridge update-state module is missing. Run windowsbridgectl repair."
+}
+Import-Module $StateModule -Force
 
 function Write-UpdateLog([string]$Message) {
     New-Item -ItemType Directory -Force -Path $Logs | Out-Null
@@ -33,6 +40,9 @@ if (-not (Test-Path $Config) -or -not (Test-Path $Current)) {
 
 $mutex = [Threading.Mutex]::new($false, $MutexName)
 $locked = $false
+$generationId = [guid]::NewGuid().ToString("N")
+$currentSha = $null
+$remoteSha = $null
 try {
     try { $locked = $mutex.WaitOne(0) } catch [Threading.AbandonedMutexException] { $locked = $true }
     if (-not $locked) {
@@ -41,11 +51,14 @@ try {
     }
 
     $currentSha = (Get-Content $Current -Raw).Trim()
+    Write-WindowsBridgeUpdateState -Path $StatePath -State "CHECKING" -GenerationId $generationId -UpdateClass "NONE" -CurrentGeneration $currentSha -PreviousGeneration $currentSha -Reason "resolving_channel"
+
     $remote = Invoke-RestMethod "https://api.github.com/repos/$Repo/commits/$Channel" -Headers @{"User-Agent"="WindowsBridge-Updater"}
     $remoteSha = [string]$remote.sha
     if ($remoteSha -notmatch '^[0-9a-f]{40}$') { throw "GitHub did not return a valid commit SHA for channel $Channel." }
 
     if (-not $Force -and $currentSha -eq $remoteSha) {
+        Write-WindowsBridgeUpdateState -Path $StatePath -State "COMMITTED" -GenerationId $generationId -UpdateClass "NONE" -CurrentGeneration $currentSha -PreviousGeneration $currentSha -Reason "already_current"
         Write-UpdateLog "ok: already current at $currentSha"
         exit 0
     }
@@ -55,6 +68,8 @@ try {
     try {
         $url = "https://raw.githubusercontent.com/$Repo/$remoteSha/install.ps1"
         Invoke-WebRequest -UseBasicParsing $url -OutFile $tmp
+        Write-WindowsBridgeUpdateState -Path $StatePath -State "DOWNLOADED" -GenerationId $generationId -UpdateClass "LEGACY_FULL_INSTALL" -CurrentGeneration $currentSha -CandidateGeneration $remoteSha -PreviousGeneration $currentSha -TransportRestartRequired $true -Reason "immutable_installer_downloaded"
+        Write-WindowsBridgeUpdateState -Path $StatePath -State "LEGACY_RESTARTING" -GenerationId $generationId -UpdateClass "LEGACY_FULL_INSTALL" -CurrentGeneration $currentSha -CandidateGeneration $remoteSha -PreviousGeneration $currentSha -TransportRestartRequired $true -Reason "seamless_supervisor_not_yet_active"
         & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $tmp -SourceRef $remoteSha -AutoUpdate
         if ($LASTEXITCODE -ne 0) { throw "WindowsBridge installer exited with code $LASTEXITCODE." }
     } finally {
@@ -63,8 +78,13 @@ try {
 
     $after = (Get-Content $Current -Raw).Trim()
     if ($after -ne $remoteSha) { throw "Update completed without activating expected commit $remoteSha." }
+    Write-WindowsBridgeUpdateState -Path $StatePath -State "COMMITTED" -GenerationId $generationId -UpdateClass "LEGACY_FULL_INSTALL" -CurrentGeneration $after -PreviousGeneration $currentSha -TransportRestartRequired $true -Reason "activated_after_controlled_restart"
     Write-UpdateLog "ok: activated $after"
 } catch {
+    $afterFailure = if (Test-Path $Current) { (Get-Content $Current -Raw).Trim() } else { $currentSha }
+    if ($currentSha) {
+        Write-WindowsBridgeUpdateState -Path $StatePath -State "FAILED_ROLLED_BACK" -GenerationId $generationId -UpdateClass "LEGACY_FULL_INSTALL" -CurrentGeneration $afterFailure -CandidateGeneration $remoteSha -PreviousGeneration $currentSha -TransportRestartRequired $true -Reason "installer_failed"
+    }
     Write-UpdateLog ("error: " + $_.Exception.Message)
     throw
 } finally {
