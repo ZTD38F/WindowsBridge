@@ -29,7 +29,7 @@ jobs:
       - name: Build standalone WindowsBridge.exe
         shell: pwsh
         run: |
-          pyinstaller --clean --noconfirm --onefile --console --name WindowsBridge --collect-all mcp windowsbridge_v2.py
+          pyinstaller --clean --noconfirm --onefile --console --name WindowsBridge --collect-all mcp windowsbridge.py
           if (-not (Test-Path dist\WindowsBridge.exe)) { throw "WindowsBridge.exe was not built" }
           $hash = (Get-FileHash dist\WindowsBridge.exe -Algorithm SHA256).Hash.ToLowerInvariant()
           "$hash  WindowsBridge.exe" | Set-Content dist\SHA256SUMS.txt -Encoding ASCII
