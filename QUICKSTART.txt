@@ -18,12 +18,47 @@ Everything WindowsBridge-related is fetched from GitHub. The installer:
 
 FIRST INSTALL ONLY
 ------------------
-The official OpenAI Secure MCP Tunnel requires:
-1. Tunnel ID
-2. Runtime API key with Tunnels Read + Use
+The installer guides the user through all required OpenAI steps.
 
-A fresh computer must receive these once. They are then stored using Windows
-DPAPI LocalMachine, so later reinstall/update is zero-input.
+STEP 1 — TUNNEL
+It opens:
+https://platform.openai.com/settings/organization/tunnels
+
+Create:
+Name: WindowsBridge
+
+If a workspace selector appears, choose the ChatGPT workspace where you will
+use WindowsBridge.
+
+Copy the resulting tunnel_... ID and paste it into PowerShell.
+
+STEP 2 — RUNTIME API KEY
+It opens:
+https://platform.openai.com/settings/organization/api-keys
+
+Create:
+Name: WindowsBridge Runtime
+Access: Restricted
+Tunnels: Read
+Tunnels: Use
+
+Paste the key into PowerShell. The input is hidden.
+
+STEP 3 — CHATGPT CONNECTOR
+After WindowsBridge passes tunnel validation, the installer opens:
+https://chatgpt.com/#settings/Connectors
+
+Use:
+Name: WindowsBridge
+Connection: Tunnel
+Tunnel: WindowsBridge / the tunnel_... ID
+Authentication: No authentication (NoAuth)
+
+NoAuth is the MCP-server auth mode. The Secure MCP Tunnel itself is still
+authenticated by the Runtime API key.
+
+The key is stored using Windows DPAPI LocalMachine, so later reinstall/update
+reuses it automatically.
 
 No personal VPS or WindowsBridge web server is used.
 
