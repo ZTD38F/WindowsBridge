@@ -2,13 +2,15 @@
 param(
     [string]$TunnelId,
     [string]$RuntimeApiKey,
-    [string]$SourceRef = "main"
+    [string]$SourceRef = "stable",
+    [switch]$AutoUpdate,
+    [switch]$DisableAutoUpdate
 )
 
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
-$SelfUrl = "https://raw.githubusercontent.com/ZTD38F/WindowsBridge/main/install.ps1"
+$SelfUrl = "https://raw.githubusercontent.com/ZTD38F/WindowsBridge/$SourceRef/install.ps1"
 $Root = Join-Path $env:ProgramData "WindowsBridge"
 $Bin = Join-Path $Root "bin"
 $Logs = Join-Path $Root "logs"
@@ -37,6 +39,8 @@ function Invoke-Elevated {
     if ($RuntimeApiKey) { $env:WINDOWSBRIDGE_RUNTIME_API_KEY = $RuntimeApiKey }
     try {
         $args = @("-NoProfile","-ExecutionPolicy","Bypass","-File",('"{0}"' -f $tmp),"-SourceRef",$SourceRef)
+        if ($AutoUpdate) { $args += "-AutoUpdate" }
+        if ($DisableAutoUpdate) { $args += "-DisableAutoUpdate" }
         $p = Start-Process -FilePath "powershell.exe" -Verb RunAs -ArgumentList $args -Wait -PassThru
         exit $p.ExitCode
     } finally {
