@@ -1,27 +1,31 @@
-WindowsBridge 0.2 RC
+WindowsBridge 0.2 RC — GitHub-only
 
-INSTALL
--------
-Paste this one line into PowerShell:
+INSTALL / UPDATE
+----------------
+Paste into PowerShell:
 
 irm https://raw.githubusercontent.com/ZTD38F/WindowsBridge/main/install.ps1 | iex
 
-WindowsBridge will:
-- request normal Windows UAC elevation when needed;
-- download WindowsBridge.exe from ZTD38F/WindowsBridge GitHub Releases;
-- download tunnel-client.exe from the official openai/tunnel-client GitHub Release;
-- verify GitHub SHA-256 asset digests;
-- install the SYSTEM startup task;
-- validate the OpenAI Secure MCP Tunnel.
+Everything WindowsBridge-related is fetched from GitHub. The installer:
+- self-elevates with normal UAC;
+- pins an immutable ZTD38F/WindowsBridge commit;
+- downloads and verifies uv from astral-sh/uv GitHub Releases;
+- builds an isolated local Python runtime;
+- downloads and verifies OpenAI tunnel-client from GitHub Releases;
+- validates the tunnel;
+- installs SYSTEM autostart;
+- rolls back to the previous source commit if validation fails.
 
 FIRST INSTALL ONLY
 ------------------
-The official OpenAI tunnel runtime requires a Tunnel ID and Runtime API key.
-If WindowsBridge is not already configured and these values are not present in
-WINDOWSBRIDGE_TUNNEL_ID / WINDOWSBRIDGE_RUNTIME_API_KEY, the installer must
-request them once. They are then stored using Windows DPAPI LocalMachine.
+The official OpenAI Secure MCP Tunnel requires:
+1. Tunnel ID
+2. Runtime API key with Tunnels Read + Use
 
-No WindowsBridge installation service or personal VPS is used.
+A fresh computer must receive these once. They are then stored using Windows
+DPAPI LocalMachine, so later reinstall/update is zero-input.
+
+No personal VPS or WindowsBridge web server is used.
 
 UNINSTALL
 ---------
