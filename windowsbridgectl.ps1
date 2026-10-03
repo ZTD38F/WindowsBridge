@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Position=0)]
-    [ValidateSet("check","status","doctor","logs","restart","update","repair","ui","auto-update-enable","auto-update-disable")]
+    [ValidateSet("check","status","doctor","logs","restart","update","update-now","update-status","repair","ui","auto-update-enable","auto-update-disable")]
     [string]$Command = "check",
     [Parameter(Position=1)]
     [int]$Lines = 100
@@ -11,6 +11,8 @@ $ErrorActionPreference = "Stop"
 $Root = Join-Path $env:ProgramData "WindowsBridge"
 $Config = Join-Path $Root "config.json"
 $Current = Join-Path $Root "current.txt"
+$UpdateState = Join-Path $Root "update-state.json"
+$UpdateStateModule = Join-Path $Root "update-state.psm1"
 $TaskName = "WindowsBridge"
 $UpdateTaskName = "WindowsBridge Auto Update"
 $HealthBase = "http://127.0.0.1:18765"
@@ -50,6 +52,17 @@ function Test-Ready {
     } catch { return $false }
 }
 
+function Get-UpdateState {
+    if (-not (Test-Path -LiteralPath $UpdateStateModule)) {
+        return [pscustomobject]@{
+            state = "UNAVAILABLE"
+            reason = "update_state_module_missing"
+        }
+    }
+    Import-Module $UpdateStateModule -Force
+    return Read-WindowsBridgeUpdateState -Path $UpdateState
+}
+
 switch ($Command) {
     "check" {
         $ok = $true
@@ -82,6 +95,7 @@ switch ($Command) {
             runtime_task = if ($task) { [string]$task.State } else { "missing" }
             ready = Test-Ready
             auto_update = if ($update) { [string]$update.State } else { "missing" }
+            update_state = [string](Get-UpdateState).state
             root = $Root
         } | Format-List
     }
@@ -127,7 +141,28 @@ switch ($Command) {
 
     "update" {
         Require-Admin
+        Write-Warning "'update' is retained for compatibility; use 'update-now'."
         & (Join-Path $Root "update.ps1") -Force
+    }
+
+    "update-now" {
+        Require-Admin
+        & (Join-Path $Root "update.ps1") -Force
+    }
+
+    "update-status" {
+        $state = Get-UpdateState
+        [pscustomobject][ordered]@{
+            state = [string]$state.state
+            generation_id = [string]$state.generation_id
+            update_class = [string]$state.update_class
+            current = [string]$state.current_generation
+            candidate = [string]$state.candidate_generation
+            previous = [string]$state.previous_generation
+            transport_restart_required = [bool]$state.transport_restart_required
+            reason = [string]$state.reason
+            updated_at = [string]$state.updated_at
+        } | Format-List
     }
 
     "repair" {
