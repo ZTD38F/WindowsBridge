@@ -60,6 +60,35 @@ jobs:
             }
           }
 
+      - name: Validate runtime safety and auto-update contract
+        shell: pwsh
+        run: |
+          $agent = Get-Content windowsbridge.py -Raw
+          $installer = Get-Content install.ps1 -Raw
+          $updater = Get-Content update.ps1 -Raw
+          $ctl = Get-Content windowsbridgectl.ps1 -Raw
+
+          $toolCount = ([regex]'@mcp\.tool\(annotations=').Matches($agent).Count
+          if ($toolCount -ne 40) { throw "Expected 40 annotated MCP tools; found $toolCount" }
+
+          $requiredInstaller = @(
+            'S-1-5-18',
+            'S-1-5-32-544',
+            'Global\WindowsBridgeTunnelRuntime',
+            '127.0.0.1:18765',
+            'WindowsBridge Auto Update',
+            'UV_PYTHON_INSTALL_DIR',
+            'management\update.ps1',
+            'management\windowsbridgectl.ps1'
+          )
+          foreach ($value in $requiredInstaller) {
+            if (-not $installer.Contains($value)) { throw "Missing installer safety contract: $value" }
+          }
+
+          if (-not $updater.Contains('commits/$Channel')) { throw "Updater must resolve a channel to an immutable Git commit." }
+          if (-not $updater.Contains('-AutoUpdate')) { throw "Updater must use noninteractive install mode." }
+          if (-not $ctl.Contains('readyz')) { throw "Control CLI must expose readiness checks." }
+
   repository-safety:
     runs-on: ubuntu-latest
     steps:
