@@ -13,8 +13,8 @@ jobs:
   windows-runtime:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: "3.12"
       - name: Install pinned runtime dependencies
@@ -22,7 +22,7 @@ jobs:
         run: python -m pip install --disable-pip-version-check mcp==2.3.0 psutil==7.1.3
       - name: Compile WindowsBridge
         shell: pwsh
-        run: python -m py_compile windowsbridge.py
+        run: python -m py_compile windowsbridge.py http_runtime.py supervisor.py
       - name: Verify MCPServer import
         shell: pwsh
         run: python -c "from mcp.server import MCPServer; print('MCPServer OK')"
@@ -93,14 +93,27 @@ jobs:
             throw "Elevation bootstrap must not redownload from a mutable source ref."
           }
 
-          if (-not $updater.Contains('commits/$Channel')) { throw "Updater must resolve a channel to an immutable Git commit." }
-          if (-not $updater.Contains('-AutoUpdate')) { throw "Updater must use noninteractive install mode." }
-          if (-not $ctl.Contains('readyz')) { throw "Control CLI must expose readiness checks." }
+          $requiredUpdater = @(
+            'releases/latest',
+            'CANDIDATE_HEALTHY',
+            'Set-Route $targetSha $candidatePort',
+            'DEFERRED_STATEFUL_HANDLES',
+            'DRAINING_OLD',
+            'FAILED_ROLLED_BACK',
+            'Update-Supervisor',
+            'Update-Transport'
+          )
+          foreach ($value in $requiredUpdater) {
+            if (-not $updater.Contains($value)) { throw "Missing seamless update contract: $value" }
+          }
+          if (-not $installer.Contains('--mcp.server-url')) { throw "Installer must use decoupled HTTP MCP transport." }
+          if (-not $installer.Contains('supervisor.py')) { throw "Installer must deploy the long-lived supervisor." }
+          if (-not $ctl.Contains('update-status')) { throw "Control CLI must expose update state." }
 
   repository-safety:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Secret-pattern guard
         shell: bash
         run: |
