@@ -170,7 +170,14 @@ function Recover-Unfinished {
 }
 
 function Resolve-Target([string]$Ref) {
-    $remote = Invoke-RestMethod "https://api.github.com/repos/$Repo/commits/$Ref" -Headers @{"User-Agent"="WindowsBridge-Updater"}
+    $headers = @{"User-Agent"="WindowsBridge-Updater"}
+    $resolved = $Ref
+    if ($Ref -eq "stable") {
+        $release = Invoke-RestMethod "https://api.github.com/repos/$Repo/releases/latest" -Headers $headers
+        if ($release.draft -or $release.prerelease) { throw "Latest stable release is not eligible for automatic update." }
+        $resolved = [string]$release.tag_name
+    }
+    $remote = Invoke-RestMethod "https://api.github.com/repos/$Repo/commits/$resolved" -Headers $headers
     $sha = [string]$remote.sha
     if ($sha -notmatch '^[0-9a-f]{40}$') { throw "Invalid GitHub commit SHA." }
     return $sha
