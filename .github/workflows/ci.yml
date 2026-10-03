@@ -30,7 +30,7 @@ jobs:
         shell: pwsh
         run: |
           $failed = $false
-          Get-ChildItem -Recurse -Filter *.ps1 | ForEach-Object {
+          Get-ChildItem -Recurse -Include *.ps1,*.psm1 | ForEach-Object {
             $tokens = $null
             $errors = $null
             [System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$tokens, [ref]$errors) | Out-Null
@@ -79,6 +79,7 @@ jobs:
             'WindowsBridge Auto Update',
             'UV_PYTHON_INSTALL_DIR',
             'management\update.ps1',
+            'management\update-state.psm1',
             'management\windowsbridgectl.ps1',
             'function Resolve-SourceCommit',
             '$ResolvedBootstrapRef = Resolve-SourceCommit $SourceRef',
@@ -95,7 +96,42 @@ jobs:
 
           if (-not $updater.Contains('commits/$Channel')) { throw "Updater must resolve a channel to an immutable Git commit." }
           if (-not $updater.Contains('-AutoUpdate')) { throw "Updater must use noninteractive install mode." }
+          if (-not $updater.Contains('LEGACY_RESTARTING')) { throw "Legacy restart updates must be reported truthfully." }
           if (-not $ctl.Contains('readyz')) { throw "Control CLI must expose readiness checks." }
+          if (-not $ctl.Contains('"update-now"')) { throw "Control CLI must expose update-now." }
+          if (-not $ctl.Contains('"update-status"')) { throw "Control CLI must expose update-status." }
+
+      - name: Verify durable update-state transitions
+        shell: pwsh
+        run: |
+          Import-Module .\update-state.psm1 -Force
+          $dir = Join-Path $env:RUNNER_TEMP ("windowsbridge-state-" + [guid]::NewGuid().ToString("N"))
+          $path = Join-Path $dir "update-state.json"
+          $generation = [guid]::NewGuid().ToString("N")
+          $current = "a" * 40
+          $candidate = "b" * 40
+          try {
+            Write-WindowsBridgeUpdateState -Path $path -State "DOWNLOADED" -GenerationId $generation -UpdateClass "APPLICATION" -CurrentGeneration $current -CandidateGeneration $candidate -PreviousGeneration $current -Reason "test_downloaded"
+            $first = Read-WindowsBridgeUpdateState -Path $path
+            if ($first.state -ne "DOWNLOADED") { throw "Initial update state was not persisted." }
+            if ($first.candidate_generation -ne $candidate) { throw "Candidate generation was not persisted." }
+
+            Write-WindowsBridgeUpdateState -Path $path -State "COMMITTED" -GenerationId $generation -UpdateClass "APPLICATION" -CurrentGeneration $candidate -PreviousGeneration $current -Reason "test_committed"
+            $second = Read-WindowsBridgeUpdateState -Path $path
+            if ($second.state -ne "COMMITTED") { throw "Atomic update-state replacement failed." }
+            if ($second.current_generation -ne $candidate) { throw "Committed generation is incorrect." }
+            if (Get-ChildItem $dir -Filter ".update-state-*") { throw "Temporary state or backup files were not cleaned up." }
+
+            $invalidRejected = $false
+            try {
+              Write-WindowsBridgeUpdateState -Path $path -State "COMMITTED" -GenerationId $generation -UpdateClass "APPLICATION" -CurrentGeneration "not-a-sha" -Reason "invalid"
+            } catch {
+              $invalidRejected = $true
+            }
+            if (-not $invalidRejected) { throw "Invalid generation SHA was accepted." }
+          } finally {
+            Remove-Item $dir -Recurse -Force -ErrorAction SilentlyContinue
+          }
 
   repository-safety:
     runs-on: ubuntu-latest
