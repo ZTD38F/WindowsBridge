@@ -227,11 +227,13 @@ $releaseDir = Join-Path $Releases $ResolvedRef
 $previousRef = if (Test-Path $Current) { (Get-Content $Current -Raw).Trim() } else { $null }
 
 try {
-    New-Item -ItemType Directory -Force -Path (Join-Path $stage "app") | Out-Null
+    New-Item -ItemType Directory -Force -Path (Join-Path $stage "app"),(Join-Path $stage "bin"),(Join-Path $stage "management") | Out-Null
 
     Write-Host "Downloading WindowsBridge source from GitHub commit $ResolvedRef..."
     Invoke-WebRequest -UseBasicParsing "$RawBase/windowsbridge.py" -OutFile (Join-Path $stage "app\windowsbridge.py")
     Invoke-WebRequest -UseBasicParsing "$RawBase/requirements.lock" -OutFile (Join-Path $stage "app\requirements.lock")
+    Invoke-WebRequest -UseBasicParsing "$RawBase/update.ps1" -OutFile (Join-Path $stage "management\update.ps1")
+    Invoke-WebRequest -UseBasicParsing "$RawBase/windowsbridgectl.ps1" -OutFile (Join-Path $stage "management\windowsbridgectl.ps1")
 
     Write-Host "Downloading verified uv from GitHub Releases..."
     $uvRelease = Invoke-RestMethod "https://api.github.com/repos/astral-sh/uv/releases/latest" -Headers @{"User-Agent"="WindowsBridge-Installer"}
@@ -247,8 +249,13 @@ try {
     Copy-Item $uvExe.FullName (Join-Path $Bin "uv.exe") -Force
     $uv = Join-Path $Bin "uv.exe"
 
-    Write-Host "Creating isolated Python runtime..."
-    & $uv python install 3.12
+    Write-Host "Creating isolated Python runtime inside WindowsBridge..."
+    $env:UV_PYTHON_INSTALL_DIR = Join-Path $Runtime "python"
+    $env:UV_CACHE_DIR = Join-Path $Cache "uv"
+    $env:UV_PYTHON_NO_REGISTRY = "1"
+    $env:UV_PYTHON_INSTALL_BIN = "0"
+    New-Item -ItemType Directory -Force -Path $env:UV_PYTHON_INSTALL_DIR,$env:UV_CACHE_DIR | Out-Null
+    & $uv python install 3.12 --install-dir $env:UV_PYTHON_INSTALL_DIR
     if ($LASTEXITCODE -ne 0) { throw "uv could not install Python 3.12." }
     & $uv venv --python 3.12 (Join-Path $stage "venv")
     if ($LASTEXITCODE -ne 0) { throw "uv could not create the WindowsBridge virtual environment." }
@@ -269,8 +276,8 @@ try {
     Expand-Archive $tunnelZip -DestinationPath $tunnelDir -Force
     $tunnelExe = Get-ChildItem $tunnelDir -Filter "tunnel-client.exe" -Recurse | Select-Object -First 1
     if (-not $tunnelExe) { throw "tunnel-client.exe was not found in the verified OpenAI GitHub archive." }
-    Copy-Item $tunnelExe.FullName (Join-Path $Bin "tunnel-client.exe") -Force
-    $tunnelFinal = Join-Path $Bin "tunnel-client.exe"
+    Copy-Item $tunnelExe.FullName (Join-Path $stage "bin\tunnel-client.exe") -Force
+    $tunnelFinal = Join-Path $stage "bin\tunnel-client.exe"
 
     $env:CONTROL_PLANE_API_KEY = $RuntimeApiKey
     $env:CONTROL_PLANE_TUNNEL_ID = $TunnelId
