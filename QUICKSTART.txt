@@ -27,7 +27,8 @@ AUTO UPDATE
 Enabled by default.
 Channel: stable
 Schedule: daily Windows Scheduled Task
-Safety: staging -> readiness check -> activate, with rollback on failure.
+Safety: immutable download -> staged install -> readiness check -> activate, with rollback on failure.
+Status: durable generation/outcome ledger; current updater reports when a transport restart is required.
 
 CONTROL
 -------
@@ -36,7 +37,8 @@ windowsbridgectl status
 windowsbridgectl doctor
 windowsbridgectl logs 200
 windowsbridgectl restart
-windowsbridgectl update
+windowsbridgectl update-status
+windowsbridgectl update-now
 windowsbridgectl repair
 windowsbridgectl ui
 windowsbridgectl auto-update-enable
