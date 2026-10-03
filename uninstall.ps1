@@ -2,9 +2,12 @@
 param()
 
 $ErrorActionPreference = "Stop"
-$SelfUrl = "https://raw.githubusercontent.com/ZTD38F/WindowsBridge/main/uninstall.ps1"
+$SelfUrl = "https://raw.githubusercontent.com/ZTD38F/WindowsBridge/stable/uninstall.ps1"
 $TaskName = "WindowsBridge"
+$UpdateTaskName = "WindowsBridge Auto Update"
 $Root = Join-Path $env:ProgramData "WindowsBridge"
+$ControlPs1 = Join-Path $env:SystemRoot "System32\windowsbridgectl.ps1"
+$ControlCmd = Join-Path $env:SystemRoot "System32\windowsbridgectl.cmd"
 
 function Test-Administrator {
     $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -24,8 +27,12 @@ if (-not (Test-Administrator)) {
     }
 }
 
-Stop-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
-Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction SilentlyContinue
+foreach ($name in @($UpdateTaskName,$TaskName)) {
+    Stop-ScheduledTask -TaskName $name -ErrorAction SilentlyContinue
+    Unregister-ScheduledTask -TaskName $name -Confirm:$false -ErrorAction SilentlyContinue
+}
+
+Remove-Item $ControlPs1,$ControlCmd -Force -ErrorAction SilentlyContinue
 
 if (Test-Path $Root) {
     Remove-Item $Root -Recurse -Force
