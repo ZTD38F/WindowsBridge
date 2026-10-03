@@ -12,6 +12,8 @@ irm https://raw.githubusercontent.com/ZTD38F/WindowsBridge/stable/install.ps1 | 
 
 The installer requests normal UAC elevation and then guides a first-time user through the only manual OpenAI steps:
 
+Before UAC elevation, the bootstrap resolves the selected GitHub channel to an immutable commit SHA and re-downloads the elevated installer from that exact commit.
+
 1. **Tunnel**
    - opens `https://platform.openai.com/settings/organization/tunnels`
    - recommended name: `WindowsBridge - <COMPUTERNAME>`
