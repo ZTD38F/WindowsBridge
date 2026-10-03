@@ -43,6 +43,7 @@ $locked = $false
 $generationId = [guid]::NewGuid().ToString("N")
 $currentSha = $null
 $remoteSha = $null
+$restartAttempted = $false
 try {
     try { $locked = $mutex.WaitOne(0) } catch [Threading.AbandonedMutexException] { $locked = $true }
     if (-not $locked) {
@@ -70,6 +71,7 @@ try {
         Invoke-WebRequest -UseBasicParsing $url -OutFile $tmp
         Write-WindowsBridgeUpdateState -Path $StatePath -State "DOWNLOADED" -GenerationId $generationId -UpdateClass "LEGACY_FULL_INSTALL" -CurrentGeneration $currentSha -CandidateGeneration $remoteSha -PreviousGeneration $currentSha -TransportRestartRequired $true -Reason "immutable_installer_downloaded"
         Write-WindowsBridgeUpdateState -Path $StatePath -State "LEGACY_RESTARTING" -GenerationId $generationId -UpdateClass "LEGACY_FULL_INSTALL" -CurrentGeneration $currentSha -CandidateGeneration $remoteSha -PreviousGeneration $currentSha -TransportRestartRequired $true -Reason "seamless_supervisor_not_yet_active"
+        $restartAttempted = $true
         & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $tmp -SourceRef $remoteSha -AutoUpdate
         if ($LASTEXITCODE -ne 0) { throw "WindowsBridge installer exited with code $LASTEXITCODE." }
     } finally {
@@ -83,7 +85,9 @@ try {
 } catch {
     $afterFailure = if (Test-Path $Current) { (Get-Content $Current -Raw).Trim() } else { $currentSha }
     if ($currentSha) {
-        Write-WindowsBridgeUpdateState -Path $StatePath -State "FAILED_ROLLED_BACK" -GenerationId $generationId -UpdateClass "LEGACY_FULL_INSTALL" -CurrentGeneration $afterFailure -CandidateGeneration $remoteSha -PreviousGeneration $currentSha -TransportRestartRequired $true -Reason "installer_failed"
+        $failureClass = if ($restartAttempted) { "LEGACY_FULL_INSTALL" } else { "NONE" }
+        $failureReason = if ($restartAttempted) { "installer_failed" } else { "failed_before_activation" }
+        Write-WindowsBridgeUpdateState -Path $StatePath -State "FAILED_ROLLED_BACK" -GenerationId $generationId -UpdateClass $failureClass -CurrentGeneration $afterFailure -CandidateGeneration $remoteSha -PreviousGeneration $currentSha -TransportRestartRequired $restartAttempted -Reason $failureReason
     }
     Write-UpdateLog ("error: " + $_.Exception.Message)
     throw
