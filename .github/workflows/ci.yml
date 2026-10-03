@@ -120,7 +120,7 @@ jobs:
             $second = Read-WindowsBridgeUpdateState -Path $path
             if ($second.state -ne "COMMITTED") { throw "Atomic update-state replacement failed." }
             if ($second.current_generation -ne $candidate) { throw "Committed generation is incorrect." }
-            if (Get-ChildItem $dir -Filter ".update-state-*.tmp") { throw "Temporary state files were not cleaned up." }
+            if (Get-ChildItem $dir -Filter ".update-state-*") { throw "Temporary state or backup files were not cleaned up." }
 
             $invalidRejected = $false
             try {
