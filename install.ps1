@@ -17,12 +17,18 @@ $Logs = Join-Path $Root "logs"
 $Releases = Join-Path $Root "releases"
 $Runtime = Join-Path $Root "runtime"
 $Cache = Join-Path $Root "cache"
+$Management = Join-Path $Root "management"
+$State = Join-Path $Root "state"
+$Secrets = Join-Path $Root "secrets"
+$RouterTokenFile = Join-Path $Secrets "router_token"
+$BackendTokenFile = Join-Path $Secrets "backend_token"
+$RuntimeKeyFile = Join-Path $Secrets "control_plane_api_key"
+$RouteFile = Join-Path $State "route.json"
+$RouterBase = "http://127.0.0.1:18766"
 $Config = Join-Path $Root "config.json"
 $Current = Join-Path $Root "current.txt"
 $Launch = Join-Path $Root "launch.ps1"
 $UpdateScript = Join-Path $Root "update.ps1"
-$UpdateStateModule = Join-Path $Root "update-state.psm1"
-$UpdateState = Join-Path $Root "update-state.json"
 $ControlScript = Join-Path $env:SystemRoot "System32\windowsbridgectl.ps1"
 $ControlCmd = Join-Path $env:SystemRoot "System32\windowsbridgectl.cmd"
 $TaskName = "WindowsBridge"
@@ -93,6 +99,16 @@ function Download-VerifiedAsset([object]$Asset, [string]$Destination) {
     if ($actual -ne $expected) {
         Remove-Item $Destination -Force -ErrorAction SilentlyContinue
         throw "SHA-256 verification failed for $($Asset.name)"
+    }
+}
+
+function Ensure-LocalSecret([string]$Path) {
+    if (-not (Test-Path $Path) -or [string]::IsNullOrWhiteSpace((Get-Content $Path -Raw -ErrorAction SilentlyContinue))) {
+        $bytes = New-Object byte[] 32
+        $rng = [Security.Cryptography.RandomNumberGenerator]::Create()
+        try { $rng.GetBytes($bytes) } finally { $rng.Dispose() }
+        $value = ([BitConverter]::ToString($bytes)).Replace("-", "").ToLowerInvariant()
+        Set-Content -Path $Path -Value $value -Encoding ASCII -NoNewline
     }
 }
 
@@ -215,7 +231,9 @@ function Show-ConnectorSetup([string]$ResolvedTunnelId) {
 
 if (-not (Test-Administrator)) { Invoke-Elevated }
 
-New-Item -ItemType Directory -Force -Path $Root,$Bin,$Logs,$Releases,$Runtime,$Cache | Out-Null
+New-Item -ItemType Directory -Force -Path $Root,$Bin,$Logs,$Releases,$Runtime,$Cache,$Management,$State,$Secrets | Out-Null
+icacls $Secrets /inheritance:r | Out-Null
+icacls $Secrets /grant:r "*S-1-5-18:(OI)(CI)F" "*S-1-5-32-544:(OI)(CI)F" | Out-Null
 
 $existing = Get-ExistingConfig
 if (-not $TunnelId) { $TunnelId = $env:WINDOWSBRIDGE_TUNNEL_ID }
@@ -250,10 +268,11 @@ try {
 
     Write-Host "Downloading WindowsBridge source from GitHub commit $ResolvedRef..."
     Invoke-WebRequest -UseBasicParsing "$RawBase/windowsbridge.py" -OutFile (Join-Path $stage "app\windowsbridge.py")
+    Invoke-WebRequest -UseBasicParsing "$RawBase/http_runtime.py" -OutFile (Join-Path $stage "app\http_runtime.py")
     Invoke-WebRequest -UseBasicParsing "$RawBase/requirements.lock" -OutFile (Join-Path $stage "app\requirements.lock")
     Invoke-WebRequest -UseBasicParsing "$RawBase/update.ps1" -OutFile (Join-Path $stage "management\update.ps1")
-    Invoke-WebRequest -UseBasicParsing "$RawBase/update-state.psm1" -OutFile (Join-Path $stage "management\update-state.psm1")
     Invoke-WebRequest -UseBasicParsing "$RawBase/windowsbridgectl.ps1" -OutFile (Join-Path $stage "management\windowsbridgectl.ps1")
+    Invoke-WebRequest -UseBasicParsing "$RawBase/supervisor.py" -OutFile (Join-Path $stage "management\supervisor.py")
 
     Write-Host "Downloading verified uv from GitHub Releases..."
     $uvRelease = Invoke-RestMethod "https://api.github.com/repos/astral-sh/uv/releases/latest" -Headers @{"User-Agent"="WindowsBridge-Installer"}
@@ -282,7 +301,7 @@ try {
     $venvPython = Join-Path $stage "venv\Scripts\python.exe"
     & $uv pip install --python $venvPython -r (Join-Path $stage "app\requirements.lock")
     if ($LASTEXITCODE -ne 0) { throw "WindowsBridge dependency installation failed." }
-    & $venvPython -m py_compile (Join-Path $stage "app\windowsbridge.py")
+    & $venvPython -m py_compile (Join-Path $stage "app\windowsbridge.py") (Join-Path $stage "app\http_runtime.py") (Join-Path $stage "management\supervisor.py")
     if ($LASTEXITCODE -ne 0) { throw "WindowsBridge Python compile check failed." }
 
     Write-Host "Downloading verified official OpenAI tunnel-client from GitHub Releases..."
@@ -297,6 +316,7 @@ try {
     $tunnelExe = Get-ChildItem $tunnelDir -Filter "tunnel-client.exe" -Recurse | Select-Object -First 1
     if (-not $tunnelExe) { throw "tunnel-client.exe was not found in the verified OpenAI GitHub archive." }
     Copy-Item $tunnelExe.FullName (Join-Path $stage "bin\tunnel-client.exe") -Force
+    Copy-Item $tunnelExe.FullName (Join-Path $Bin "tunnel-client.exe") -Force
     $tunnelFinal = Join-Path $stage "bin\tunnel-client.exe"
 
     $env:CONTROL_PLANE_API_KEY = $RuntimeApiKey
@@ -315,7 +335,7 @@ try {
     $protected = [Security.Cryptography.ProtectedData]::Protect($keyBytes, $null, [Security.Cryptography.DataProtectionScope]::LocalMachine)
 
     [ordered]@{
-        version = "0.2.0"
+        version = "0.4.0"
         source_commit = $ResolvedRef
         tunnel_id = $TunnelId
         api_key_dpapi = [Convert]::ToBase64String($protected)
@@ -325,6 +345,11 @@ try {
     } | ConvertTo-Json | Set-Content $Config -Encoding UTF8
 
     Set-Content $Current $ResolvedRef -Encoding ASCII
+    Set-Content -Path $RuntimeKeyFile -Value $RuntimeApiKey -Encoding ASCII -NoNewline
+    Ensure-LocalSecret $RouterTokenFile
+    Ensure-LocalSecret $BackendTokenFile
+    [ordered]@{ generation = $ResolvedRef; port = 18771 } | ConvertTo-Json -Compress | Set-Content $RouteFile -Encoding ASCII
+    Copy-Item (Join-Path $releaseDir "management\supervisor.py") (Join-Path $Management "supervisor.py") -Force
 
     $launchContent = @'
 $ErrorActionPreference = "Stop"
@@ -338,34 +363,62 @@ try {
     $cfg = Get-Content (Join-Path $Root "config.json") -Raw | ConvertFrom-Json
     $ref = (Get-Content (Join-Path $Root "current.txt") -Raw).Trim()
     $release = Join-Path (Join-Path $Root "releases") $ref
+    $python = Join-Path $release "venv\Scripts\python.exe"
+    $route = Get-Content (Join-Path $Root "state\route.json") -Raw | ConvertFrom-Json
+    $serverPidFile = Join-Path $Root "state\server.pid"
+    $supervisorPidFile = Join-Path $Root "state\supervisor.pid"
+    $tunnelPidFile = Join-Path $Root "state\tunnel.pid"
+    $routerToken = Join-Path $Root "secrets\router_token"
+    $backendToken = Join-Path $Root "secrets\backend_token"
+    $runtimeKey = Join-Path $Root "secrets\control_plane_api_key"
+    $tunnel = Join-Path $Root "bin\tunnel-client.exe"
     $log = Join-Path $Root "logs\tunnel.log"
+    $errLog = Join-Path $Root "logs\tunnel.err.log"
 
-    if ((Test-Path $log) -and (Get-Item $log).Length -gt 10MB) {
-        for ($i = 5; $i -ge 1; $i--) {
-            $src = if ($i -eq 1) { $log } else { "$log." + ($i - 1) }
-            $dst = "$log.$i"
-            if (Test-Path $src) { Move-Item $src $dst -Force }
-        }
+    function Alive([string]$Path) {
+        if (-not (Test-Path $Path)) { return $false }
+        $v = (Get-Content $Path -Raw).Trim()
+        if ($v -notmatch '^\d+$') { return $false }
+        return $null -ne (Get-Process -Id ([int]$v) -ErrorAction SilentlyContinue)
     }
 
-    $enc = [Convert]::FromBase64String($cfg.api_key_dpapi)
-    $raw = [Security.Cryptography.ProtectedData]::Unprotect($enc, $null, [Security.Cryptography.DataProtectionScope]::LocalMachine)
-    try {
-        $env:CONTROL_PLANE_API_KEY = [Text.Encoding]::UTF8.GetString($raw)
-        $env:CONTROL_PLANE_TUNNEL_ID = $cfg.tunnel_id
-        $env:MCP_COMMAND = '"' + (Join-Path $release "venv\Scripts\python.exe") + '" "' + (Join-Path $release "app\windowsbridge.py") + '"'
-        $env:WINDOWSBRIDGE_ALLOWED_ROOTS = "*"
-        $env:PYTHONUNBUFFERED = "1"
-        $env:HEALTH_LISTEN_ADDR = "127.0.0.1:18765"
-        $env:MCP_STARTUP_WAIT_TIMEOUT = "20s"
-        & (Join-Path $release "bin\tunnel-client.exe") run *>> $log
-    } finally {
-        $env:CONTROL_PLANE_API_KEY = $null
-        $env:CONTROL_PLANE_TUNNEL_ID = $null
-        $env:MCP_COMMAND = $null
-        $raw = $null
+    if (-not (Test-Path $runtimeKey)) {
+        $enc = [Convert]::FromBase64String($cfg.api_key_dpapi)
+        $raw = [Security.Cryptography.ProtectedData]::Unprotect($enc, $null, [Security.Cryptography.DataProtectionScope]::LocalMachine)
+        try { Set-Content -Path $runtimeKey -Value ([Text.Encoding]::UTF8.GetString($raw)) -Encoding ASCII -NoNewline }
+        finally { $raw = $null }
     }
+
+    if (-not (Alive $serverPidFile)) {
+        $env:WINDOWSBRIDGE_BACKEND_TOKEN_FILE = $backendToken
+        $p = Start-Process -FilePath $python -ArgumentList @((Join-Path $release "app\http_runtime.py"),"--port",[string]$route.port) -WindowStyle Hidden -PassThru
+        Set-Content $serverPidFile $p.Id -Encoding ASCII
+        $env:WINDOWSBRIDGE_BACKEND_TOKEN_FILE = $null
+    }
+
+    if (-not (Alive $supervisorPidFile)) {
+        $env:WINDOWSBRIDGE_ROOT = $Root
+        $p = Start-Process -FilePath $python -ArgumentList @((Join-Path $Root "management\supervisor.py")) -WindowStyle Hidden -PassThru
+        Set-Content $supervisorPidFile $p.Id -Encoding ASCII
+        $env:WINDOWSBRIDGE_ROOT = $null
+    }
+
+    $env:CONTROL_PLANE_TUNNEL_ID = [string]$cfg.tunnel_id
+    $args = @(
+      "run",
+      "--control-plane.api-key","file:$runtimeKey",
+      "--mcp.server-url","http://127.0.0.1:18766/mcp",
+      "--mcp.extra-headers","X-Bridge-Token: file:$routerToken",
+      "--health.listen-addr","127.0.0.1:18765"
+    )
+    $p = Start-Process -FilePath $tunnel -ArgumentList $args -WindowStyle Hidden -PassThru -RedirectStandardOutput $log -RedirectStandardError $errLog
+    Set-Content $tunnelPidFile $p.Id -Encoding ASCII
+    $p.WaitForExit()
+    exit $p.ExitCode
 } finally {
+    $env:CONTROL_PLANE_TUNNEL_ID = $null
+    $env:WINDOWSBRIDGE_BACKEND_TOKEN_FILE = $null
+    $env:WINDOWSBRIDGE_ROOT = $null
     if ($locked) { $mutex.ReleaseMutex() | Out-Null }
     $mutex.Dispose()
 }
@@ -401,15 +454,10 @@ try {
     if ($state -notin @("Running","Ready")) { throw "WindowsBridge startup task is not healthy: $state" }
 
     Copy-Item (Join-Path $releaseDir "management\update.ps1") $UpdateScript -Force
-    Copy-Item (Join-Path $releaseDir "management\update-state.psm1") $UpdateStateModule -Force
+    Copy-Item (Join-Path $releaseDir "management\supervisor.py") (Join-Path $Management "supervisor.py") -Force
     Copy-Item (Join-Path $releaseDir "management\windowsbridgectl.ps1") $ControlScript -Force
     $controlCmdContent = '@echo off' + [Environment]::NewLine + 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%SystemRoot%\System32\windowsbridgectl.ps1" %*'
     Set-Content $ControlCmd $controlCmdContent -Encoding ASCII
-
-    if (-not $AutoUpdate) {
-        Import-Module $UpdateStateModule -Force
-        Write-WindowsBridgeUpdateState -Path $UpdateState -State "COMMITTED" -GenerationId ([guid]::NewGuid().ToString("N")) -UpdateClass "NONE" -CurrentGeneration $ResolvedRef -PreviousGeneration $previousRef -Reason "installation_completed"
-    }
 
     if (-not $DisableAutoUpdate) {
         Stop-ScheduledTask -TaskName $AutoUpdateTaskName -ErrorAction SilentlyContinue
