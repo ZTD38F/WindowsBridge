@@ -2,21 +2,30 @@
 param(
     [string]$TunnelId,
     [string]$RuntimeApiKey,
-    [string]$SourceRef = "main"
+    [string]$SourceRef = "stable",
+    [switch]$AutoUpdate,
+    [switch]$DisableAutoUpdate
 )
 
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
-$SelfUrl = "https://raw.githubusercontent.com/ZTD38F/WindowsBridge/main/install.ps1"
+$SelfUrl = "https://raw.githubusercontent.com/ZTD38F/WindowsBridge/$SourceRef/install.ps1"
 $Root = Join-Path $env:ProgramData "WindowsBridge"
 $Bin = Join-Path $Root "bin"
 $Logs = Join-Path $Root "logs"
 $Releases = Join-Path $Root "releases"
+$Runtime = Join-Path $Root "runtime"
+$Cache = Join-Path $Root "cache"
 $Config = Join-Path $Root "config.json"
 $Current = Join-Path $Root "current.txt"
 $Launch = Join-Path $Root "launch.ps1"
+$UpdateScript = Join-Path $Root "update.ps1"
+$ControlScript = Join-Path $env:SystemRoot "System32\windowsbridgectl.ps1"
+$ControlCmd = Join-Path $env:SystemRoot "System32\windowsbridgectl.cmd"
 $TaskName = "WindowsBridge"
+$AutoUpdateTaskName = "WindowsBridge Auto Update"
+$HealthBase = "http://127.0.0.1:18765"
 
 function Test-Administrator {
     $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -37,6 +46,8 @@ function Invoke-Elevated {
     if ($RuntimeApiKey) { $env:WINDOWSBRIDGE_RUNTIME_API_KEY = $RuntimeApiKey }
     try {
         $args = @("-NoProfile","-ExecutionPolicy","Bypass","-File",('"{0}"' -f $tmp),"-SourceRef",$SourceRef)
+        if ($AutoUpdate) { $args += "-AutoUpdate" }
+        if ($DisableAutoUpdate) { $args += "-DisableAutoUpdate" }
         $p = Start-Process -FilePath "powershell.exe" -Verb RunAs -ArgumentList $args -Wait -PassThru
         exit $p.ExitCode
     } finally {
@@ -100,7 +111,7 @@ function Read-TunnelId {
     Write-Host ""
     Write-Host "A browser page will open. In OpenAI Platform:" -ForegroundColor White
     Write-Host "  1. Create a new tunnel." -ForegroundColor Gray
-    Write-Host "  2. Name: WindowsBridge" -ForegroundColor Yellow
+    Write-Host "  2. Name: WindowsBridge - $env:COMPUTERNAME" -ForegroundColor Yellow
     Write-Host "  3. If a workspace selector appears, choose the ChatGPT workspace" -ForegroundColor Gray
     Write-Host "     where you will use WindowsBridge." -ForegroundColor Gray
     Write-Host "  4. Create/save the tunnel." -ForegroundColor Gray
@@ -135,7 +146,7 @@ function Read-RuntimeApiKey {
     Write-Host ""
     Write-Host "In OpenAI Platform Runtime API keys:" -ForegroundColor White
     Write-Host "  1. Create a new Runtime API key." -ForegroundColor Gray
-    Write-Host "  2. Name: WindowsBridge Runtime" -ForegroundColor Yellow
+    Write-Host "  2. Name: WindowsBridge Runtime - $env:COMPUTERNAME" -ForegroundColor Yellow
     Write-Host "  3. Choose: Restricted" -ForegroundColor Yellow
     Write-Host "  4. Grant only:" -ForegroundColor Gray
     Write-Host "       Tunnels -> Read" -ForegroundColor Yellow
@@ -167,9 +178,9 @@ function Show-ConnectorSetup([string]$ResolvedTunnelId) {
     Write-Host "============================================================" -ForegroundColor DarkCyan
     Write-Host ""
     Write-Host "WindowsBridge is running. Finish the connector in ChatGPT:" -ForegroundColor White
-    Write-Host "  Name:           WindowsBridge" -ForegroundColor Yellow
+    Write-Host "  Name:           WindowsBridge - $env:COMPUTERNAME" -ForegroundColor Yellow
     Write-Host "  Connection:     Tunnel" -ForegroundColor Yellow
-    Write-Host "  Tunnel:         select WindowsBridge, or paste:" -ForegroundColor Gray
+    Write-Host "  Tunnel:         select WindowsBridge - $env:COMPUTERNAME, or paste:" -ForegroundColor Gray
     Write-Host "                  $ResolvedTunnelId" -ForegroundColor Yellow
     Write-Host "  Authentication: No authentication (NoAuth)" -ForegroundColor Yellow
     Write-Host ""
@@ -186,7 +197,7 @@ if (-not (Test-Administrator)) { Invoke-Elevated }
 
 if ($SourceRef -notmatch '^[A-Za-z0-9._-]{1,80}$') { throw "Invalid SourceRef." }
 
-New-Item -ItemType Directory -Force -Path $Root,$Bin,$Logs,$Releases | Out-Null
+New-Item -ItemType Directory -Force -Path $Root,$Bin,$Logs,$Releases,$Runtime,$Cache | Out-Null
 
 $existing = Get-ExistingConfig
 if (-not $TunnelId) { $TunnelId = $env:WINDOWSBRIDGE_TUNNEL_ID }
@@ -196,13 +207,17 @@ if (-not $RuntimeApiKey -and $existing) { $RuntimeApiKey = $existing.runtime_api
 
 $PreviousTunnelId = if ($existing) { [string]$existing.tunnel_id } else { $null }
 
+if ($AutoUpdate -and -not $existing) {
+    throw "Automatic update requires an existing WindowsBridge installation."
+}
+
 if (-not $TunnelId) { $TunnelId = Read-TunnelId }
 if (-not $RuntimeApiKey) { $RuntimeApiKey = Read-RuntimeApiKey }
 
 if ($TunnelId -notmatch '^tunnel_[0-9a-f]{32}$') { throw "Invalid OpenAI tunnel ID." }
 if ([string]::IsNullOrWhiteSpace($RuntimeApiKey)) { throw "Runtime API key is required." }
 
-$NeedsConnectorSetup = (-not $existing) -or ($PreviousTunnelId -ne $TunnelId)
+$NeedsConnectorSetup = (-not $AutoUpdate) -and ((-not $existing) -or ($PreviousTunnelId -ne $TunnelId))
 
 Write-Host "Resolving immutable WindowsBridge commit from GitHub..."
 $commit = Invoke-RestMethod "https://api.github.com/repos/ZTD38F/WindowsBridge/commits/$SourceRef" -Headers @{"User-Agent"="WindowsBridge-Installer"}
@@ -215,11 +230,13 @@ $releaseDir = Join-Path $Releases $ResolvedRef
 $previousRef = if (Test-Path $Current) { (Get-Content $Current -Raw).Trim() } else { $null }
 
 try {
-    New-Item -ItemType Directory -Force -Path (Join-Path $stage "app") | Out-Null
+    New-Item -ItemType Directory -Force -Path (Join-Path $stage "app"),(Join-Path $stage "bin"),(Join-Path $stage "management") | Out-Null
 
     Write-Host "Downloading WindowsBridge source from GitHub commit $ResolvedRef..."
     Invoke-WebRequest -UseBasicParsing "$RawBase/windowsbridge.py" -OutFile (Join-Path $stage "app\windowsbridge.py")
     Invoke-WebRequest -UseBasicParsing "$RawBase/requirements.lock" -OutFile (Join-Path $stage "app\requirements.lock")
+    Invoke-WebRequest -UseBasicParsing "$RawBase/update.ps1" -OutFile (Join-Path $stage "management\update.ps1")
+    Invoke-WebRequest -UseBasicParsing "$RawBase/windowsbridgectl.ps1" -OutFile (Join-Path $stage "management\windowsbridgectl.ps1")
 
     Write-Host "Downloading verified uv from GitHub Releases..."
     $uvRelease = Invoke-RestMethod "https://api.github.com/repos/astral-sh/uv/releases/latest" -Headers @{"User-Agent"="WindowsBridge-Installer"}
@@ -235,8 +252,13 @@ try {
     Copy-Item $uvExe.FullName (Join-Path $Bin "uv.exe") -Force
     $uv = Join-Path $Bin "uv.exe"
 
-    Write-Host "Creating isolated Python runtime..."
-    & $uv python install 3.12
+    Write-Host "Creating isolated Python runtime inside WindowsBridge..."
+    $env:UV_PYTHON_INSTALL_DIR = Join-Path $Runtime "python"
+    $env:UV_CACHE_DIR = Join-Path $Cache "uv"
+    $env:UV_PYTHON_NO_REGISTRY = "1"
+    $env:UV_PYTHON_INSTALL_BIN = "0"
+    New-Item -ItemType Directory -Force -Path $env:UV_PYTHON_INSTALL_DIR,$env:UV_CACHE_DIR | Out-Null
+    & $uv python install 3.12 --install-dir $env:UV_PYTHON_INSTALL_DIR
     if ($LASTEXITCODE -ne 0) { throw "uv could not install Python 3.12." }
     & $uv venv --python 3.12 (Join-Path $stage "venv")
     if ($LASTEXITCODE -ne 0) { throw "uv could not create the WindowsBridge virtual environment." }
@@ -257,8 +279,8 @@ try {
     Expand-Archive $tunnelZip -DestinationPath $tunnelDir -Force
     $tunnelExe = Get-ChildItem $tunnelDir -Filter "tunnel-client.exe" -Recurse | Select-Object -First 1
     if (-not $tunnelExe) { throw "tunnel-client.exe was not found in the verified OpenAI GitHub archive." }
-    Copy-Item $tunnelExe.FullName (Join-Path $Bin "tunnel-client.exe") -Force
-    $tunnelFinal = Join-Path $Bin "tunnel-client.exe"
+    Copy-Item $tunnelExe.FullName (Join-Path $stage "bin\tunnel-client.exe") -Force
+    $tunnelFinal = Join-Path $stage "bin\tunnel-client.exe"
 
     $env:CONTROL_PLANE_API_KEY = $RuntimeApiKey
     $env:CONTROL_PLANE_TUNNEL_ID = $TunnelId
@@ -290,27 +312,51 @@ try {
     $launchContent = @'
 $ErrorActionPreference = "Stop"
 $Root = Join-Path $env:ProgramData "WindowsBridge"
-$cfg = Get-Content (Join-Path $Root "config.json") -Raw | ConvertFrom-Json
-$ref = (Get-Content (Join-Path $Root "current.txt") -Raw).Trim()
-$release = Join-Path (Join-Path $Root "releases") $ref
-$enc = [Convert]::FromBase64String($cfg.api_key_dpapi)
-$raw = [Security.Cryptography.ProtectedData]::Unprotect($enc, $null, [Security.Cryptography.DataProtectionScope]::LocalMachine)
+$mutex = [Threading.Mutex]::new($false, "Global\WindowsBridgeTunnelRuntime")
+$locked = $false
 try {
-    $env:CONTROL_PLANE_API_KEY = [Text.Encoding]::UTF8.GetString($raw)
-    $env:CONTROL_PLANE_TUNNEL_ID = $cfg.tunnel_id
-    $env:MCP_COMMAND = '"' + (Join-Path $release "venv\Scripts\python.exe") + '" "' + (Join-Path $release "app\windowsbridge.py") + '"'
-    $env:WINDOWSBRIDGE_ALLOWED_ROOTS = "*"
-    $env:PYTHONUNBUFFERED = "1"
-    & (Join-Path $Root "bin\tunnel-client.exe") run *>> (Join-Path $Root "logs\tunnel.log")
+    try { $locked = $mutex.WaitOne(0) } catch [Threading.AbandonedMutexException] { $locked = $true }
+    if (-not $locked) { exit 0 }
+
+    $cfg = Get-Content (Join-Path $Root "config.json") -Raw | ConvertFrom-Json
+    $ref = (Get-Content (Join-Path $Root "current.txt") -Raw).Trim()
+    $release = Join-Path (Join-Path $Root "releases") $ref
+    $log = Join-Path $Root "logs\tunnel.log"
+
+    if ((Test-Path $log) -and (Get-Item $log).Length -gt 10MB) {
+        for ($i = 5; $i -ge 1; $i--) {
+            $src = if ($i -eq 1) { $log } else { "$log." + ($i - 1) }
+            $dst = "$log.$i"
+            if (Test-Path $src) { Move-Item $src $dst -Force }
+        }
+    }
+
+    $enc = [Convert]::FromBase64String($cfg.api_key_dpapi)
+    $raw = [Security.Cryptography.ProtectedData]::Unprotect($enc, $null, [Security.Cryptography.DataProtectionScope]::LocalMachine)
+    try {
+        $env:CONTROL_PLANE_API_KEY = [Text.Encoding]::UTF8.GetString($raw)
+        $env:CONTROL_PLANE_TUNNEL_ID = $cfg.tunnel_id
+        $env:MCP_COMMAND = '"' + (Join-Path $release "venv\Scripts\python.exe") + '" "' + (Join-Path $release "app\windowsbridge.py") + '"'
+        $env:WINDOWSBRIDGE_ALLOWED_ROOTS = "*"
+        $env:PYTHONUNBUFFERED = "1"
+        $env:HEALTH_LISTEN_ADDR = "127.0.0.1:18765"
+        $env:MCP_STARTUP_WAIT_TIMEOUT = "20s"
+        & (Join-Path $release "bin\tunnel-client.exe") run *>> $log
+    } finally {
+        $env:CONTROL_PLANE_API_KEY = $null
+        $env:CONTROL_PLANE_TUNNEL_ID = $null
+        $env:MCP_COMMAND = $null
+        $raw = $null
+    }
 } finally {
-    $env:CONTROL_PLANE_API_KEY = $null
-    $raw = $null
+    if ($locked) { $mutex.ReleaseMutex() | Out-Null }
+    $mutex.Dispose()
 }
 '@
     Set-Content $Launch $launchContent -Encoding UTF8
 
     icacls $Root /inheritance:r | Out-Null
-    icacls $Root /grant:r "SYSTEM:(OI)(CI)F" "Administrators:(OI)(CI)F" | Out-Null
+    icacls $Root /grant:r "*S-1-5-18:(OI)(CI)F" "*S-1-5-32-544:(OI)(CI)F" | Out-Null
 
     Stop-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
     Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction SilentlyContinue
@@ -318,39 +364,83 @@ try {
     $actionArgs = '-NoProfile -ExecutionPolicy Bypass -File "{0}"' -f $Launch
     $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument $actionArgs
     $trigger = New-ScheduledTaskTrigger -AtStartup
-    $principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
+    $principal = New-ScheduledTaskPrincipal -UserId "S-1-5-18" -LogonType ServiceAccount -RunLevel Highest
     $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit ([TimeSpan]::Zero)
 
     Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Description "WindowsBridge MCP agent for ChatGPT" | Out-Null
     Start-ScheduledTask -TaskName $TaskName
-    Start-Sleep -Seconds 3
+
+    $ready = $false
+    for ($i = 0; $i -lt 45; $i++) {
+        try {
+            $response = Invoke-WebRequest -UseBasicParsing "$HealthBase/readyz" -TimeoutSec 2
+            if ($response.StatusCode -eq 200) { $ready = $true; break }
+        } catch {}
+        Start-Sleep -Seconds 1
+    }
 
     $state = (Get-ScheduledTask -TaskName $TaskName).State
+    if (-not $ready) { throw "WindowsBridge started but the OpenAI tunnel did not become ready at $HealthBase/readyz." }
     if ($state -notin @("Running","Ready")) { throw "WindowsBridge startup task is not healthy: $state" }
+
+    Copy-Item (Join-Path $releaseDir "management\update.ps1") $UpdateScript -Force
+    Copy-Item (Join-Path $releaseDir "management\windowsbridgectl.ps1") $ControlScript -Force
+    $controlCmdContent = '@echo off' + [Environment]::NewLine + 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%SystemRoot%\System32\windowsbridgectl.ps1" %*'
+    Set-Content $ControlCmd $controlCmdContent -Encoding ASCII
+
+    if (-not $DisableAutoUpdate) {
+        Stop-ScheduledTask -TaskName $AutoUpdateTaskName -ErrorAction SilentlyContinue
+        Unregister-ScheduledTask -TaskName $AutoUpdateTaskName -Confirm:$false -ErrorAction SilentlyContinue
+        $updateArgs = '-NoProfile -ExecutionPolicy Bypass -File "{0}"' -f $UpdateScript
+        $updateAction = New-ScheduledTaskAction -Execute "powershell.exe" -Argument $updateArgs
+        $updateTrigger = New-ScheduledTaskTrigger -Daily -At 3am
+        $updatePrincipal = New-ScheduledTaskPrincipal -UserId "S-1-5-18" -LogonType ServiceAccount -RunLevel Highest
+        $updateSettings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Hours 1)
+        Register-ScheduledTask -TaskName $AutoUpdateTaskName -Action $updateAction -Trigger $updateTrigger -Principal $updatePrincipal -Settings $updateSettings -Description "Safely update WindowsBridge from the stable GitHub channel" | Out-Null
+    }
+
+    Get-ChildItem $Releases -Directory -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -match '^[0-9a-f]{40}$' } |
+        Sort-Object LastWriteTimeUtc -Descending |
+        Select-Object -Skip 3 |
+        ForEach-Object { Remove-Item $_.FullName -Recurse -Force -ErrorAction SilentlyContinue }
 
     Write-Host ""
     Write-Host "WindowsBridge installed from GitHub." -ForegroundColor Green
     Write-Host "Source commit: $ResolvedRef"
     Write-Host "OpenAI tunnel-client: $($tunnelRelease.tag_name)"
-    Write-Host "Task state: $state"
+    Write-Host "Tunnel readiness: ready"
+    Write-Host "Automatic updates: $(if ($DisableAutoUpdate) { 'disabled' } else { 'enabled (stable, daily)' })"
+    Write-Host "Control command: windowsbridgectl check"
 
     if ($NeedsConnectorSetup) {
         Show-ConnectorSetup $TunnelId
-    } else {
+    } elseif (-not $AutoUpdate) {
         Write-Host ""
         Write-Host "Existing OpenAI tunnel configuration reused; no connector setup is needed." -ForegroundColor Green
     }
 } catch {
     if (Test-Path $stage) { Remove-Item $stage -Recurse -Force -ErrorAction SilentlyContinue }
+    if ($ResolvedRef -and $ResolvedRef -ne $previousRef -and (Test-Path $releaseDir)) {
+        Remove-Item $releaseDir -Recurse -Force -ErrorAction SilentlyContinue
+    }
     if ($previousRef -and (Test-Path (Join-Path $Releases $previousRef))) {
         Set-Content $Current $previousRef -Encoding ASCII -ErrorAction SilentlyContinue
         Start-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
+    } else {
+        Remove-Item $Current -Force -ErrorAction SilentlyContinue
+        Stop-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
+        Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction SilentlyContinue
     }
     throw
 } finally {
     $env:CONTROL_PLANE_API_KEY = $null
     $env:CONTROL_PLANE_TUNNEL_ID = $null
     $env:MCP_COMMAND = $null
+    $env:UV_PYTHON_INSTALL_DIR = $null
+    $env:UV_CACHE_DIR = $null
+    $env:UV_PYTHON_NO_REGISTRY = $null
+    $env:UV_PYTHON_INSTALL_BIN = $null
     $RuntimeApiKey = $null
     $existing = $null
     [GC]::Collect()
