@@ -78,5 +78,7 @@ class H(BaseHTTPRequestHandler):
 
 def main():
     STATE.mkdir(parents=True,exist_ok=True); secret(ROUTER_TOKEN); secret(BACKEND_TOKEN); route()
-    s=ThreadingHTTPServer(("127.0.0.1",18766),H); s.daemon_threads=True; s.serve_forever()
+    port=int(os.environ.get("WINDOWSBRIDGE_SUPERVISOR_PORT","18766"))
+    if not 1024<=port<=65535: raise RuntimeError("invalid supervisor port")
+    s=ThreadingHTTPServer(("127.0.0.1",port),H); s.daemon_threads=True; s.serve_forever()
 if __name__=="__main__": main()
