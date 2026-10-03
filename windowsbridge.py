@@ -32,7 +32,7 @@ if sys.platform != "win32":
 
 import winreg
 
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 mcp = MCPServer("WindowsBridge")
 
 # The tunnel credential is needed by tunnel-client, not by the MCP child.
@@ -183,8 +183,17 @@ def _atomic_write(path: Path, data: bytes, expected_sha256: str | None = None) -
 
 
 def _clean_env() -> dict[str, str]:
-    blocked = {"CONTROL_PLANE_API_KEY", "OPENAI_API_KEY", "OPENAI_ADMIN_KEY"}
-    return {k: v for k, v in os.environ.items() if k not in blocked}
+    # Commands get a minimal Windows environment instead of inheriting every
+    # machine-level variable from the SYSTEM task.
+    allowed = {
+        "PATH", "PATHEXT", "SYSTEMROOT", "WINDIR", "COMSPEC",
+        "TEMP", "TMP", "PROGRAMDATA", "PROGRAMFILES", "PROGRAMFILES(X86)",
+        "COMMONPROGRAMFILES", "COMMONPROGRAMFILES(X86)",
+        "PROCESSOR_ARCHITECTURE", "NUMBER_OF_PROCESSORS",
+        "USERNAME", "USERDOMAIN", "COMPUTERNAME", "HOMEDRIVE", "HOMEPATH",
+        "LANG", "TZ",
+    }
+    return {k: v for k, v in os.environ.items() if k.upper() in allowed}
 
 
 def _run(argv: list[str], cwd: str | None = None, timeout: int = 120, stdin_text: str | None = None) -> dict[str, Any]:
@@ -996,6 +1005,21 @@ def http_probe(url: str, timeout_seconds: float = 10.0) -> dict[str, Any]:
             }
     except Exception as exc:
         return {"url": url, "ok": False, "latency_ms": round((time.monotonic() - started) * 1000, 2), "error": str(exc)}
+
+
+@mcp.tool()
+def bridge_self_check() -> dict[str, Any]:
+    checks = {
+        "platform_windows": sys.platform == "win32",
+        "state_root_exists": STATE_ROOT.exists(),
+        "python": platform.python_version(),
+        "is_admin": bool(ctypes.windll.shell32.IsUserAnAdmin()),
+        "powershell_available": shutil.which("powershell.exe") is not None,
+        "service_control_available": shutil.which("sc.exe") is not None,
+        "event_log_available": shutil.which("wevtutil.exe") is not None,
+        "task_scheduler_available": shutil.which("schtasks.exe") is not None,
+    }
+    return {"ok": all(v is True or isinstance(v, str) for v in checks.values()), "checks": checks, "version": VERSION}
 
 
 if __name__ == "__main__":
