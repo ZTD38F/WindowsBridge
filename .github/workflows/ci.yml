@@ -41,6 +41,25 @@ jobs:
           }
           if ($failed) { exit 1 }
 
+      - name: Validate first-run onboarding contract
+        shell: pwsh
+        run: |
+          $installer = Get-Content install.ps1 -Raw
+          $required = @(
+            "https://platform.openai.com/settings/organization/tunnels",
+            "https://platform.openai.com/settings/organization/api-keys",
+            "https://chatgpt.com/#settings/Connectors",
+            "WindowsBridge Runtime",
+            "Tunnels -> Read",
+            "Tunnels -> Use",
+            "No authentication (NoAuth)"
+          )
+          foreach ($value in $required) {
+            if (-not $installer.Contains($value)) {
+              throw "Required onboarding contract text is missing: $value"
+            }
+          }
+
   repository-safety:
     runs-on: ubuntu-latest
     steps:
