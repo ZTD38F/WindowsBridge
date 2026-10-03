@@ -58,6 +58,10 @@ WindowsBridge follows the **stable** GitHub branch, never unreleased `main` by d
 
 A SYSTEM Scheduled Task checks once per day. An update is applied only through the same staged installer and must pass tunnel readiness; otherwise the previous release pointer is restored.
 
+Update progress is stored atomically in `%ProgramData%\WindowsBridge\update-state.json` with non-secret current, candidate, and previous generation IDs. `update-status` reports the last durable state and rollback reason after the shell or browser has closed.
+
+The current installer-based updater still performs a controlled tunnel restart and reports `LEGACY_RESTARTING` plus `transport_restart_required: true`. It is not presented as seamless; issue #2 tracks the long-lived supervisor/router needed for ordinary runtime updates without a transport restart.
+
 Useful commands:
 
 ```powershell
@@ -66,7 +70,8 @@ windowsbridgectl status
 windowsbridgectl doctor
 windowsbridgectl logs 200
 windowsbridgectl restart
-windowsbridgectl update
+windowsbridgectl update-status
+windowsbridgectl update-now
 windowsbridgectl repair
 windowsbridgectl ui
 windowsbridgectl auto-update-enable
