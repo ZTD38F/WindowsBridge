@@ -54,42 +54,48 @@ No inbound MCP, RDP, SSH, or WindowsBridge-specific public port is opened.
 
 ## Automatic updates
 
-WindowsBridge follows the **stable** GitHub branch, never unreleased `main` by default.
+WindowsBridge has a built-in generation-aware updater. The long-lived OpenAI
+Secure MCP Tunnel points to an authenticated loopback supervisor instead of
+owning the Python MCP runtime as a stdio child.
 
-A SYSTEM Scheduled Task checks once per day. An update is applied only through the same staged installer and must pass tunnel readiness; otherwise the previous release pointer is restored.
+For an ordinary runtime update WindowsBridge stages a new immutable generation,
+starts it on the inactive backend port, validates health and MCP tool-schema
+compatibility, atomically switches the supervisor route, drains in-flight
+requests assigned to the previous generation, observes the candidate, and then
+commits it. If persistent process sessions are still owned by the current
+generation, activation is deferred rather than breaking those handles.
+
+`TRANSPORT_UPDATE` is separate: the verified tunnel binary is replaced only
+when its pinned version changes, using the shortest controlled reconnect and
+automatic binary/config rollback if readiness fails.
 
 Useful commands:
 
 ```powershell
 windowsbridgectl check
 windowsbridgectl status
-windowsbridgectl doctor
+windowsbridgectl update-status
+windowsbridgectl update-now
 windowsbridgectl logs 200
-windowsbridgectl restart
-windowsbridgectl update
-windowsbridgectl repair
-windowsbridgectl ui
 windowsbridgectl auto-update-enable
 windowsbridgectl auto-update-disable
 ```
 
-To opt out when installing:
-
-```powershell
-& ([scriptblock]::Create((irm https://raw.githubusercontent.com/ZTD38F/WindowsBridge/stable/install.ps1))) -DisableAutoUpdate
-```
+The first upgrade from the legacy stdio topology performs one controlled
+migration. Subsequent normal runtime updates do not intentionally restart the
+tunnel transport.
 
 ## Architecture
 
 ```text
 ChatGPT
   ↓
-OpenAI Secure MCP Tunnel
+OpenAI Secure MCP Tunnel (long-lived)
   ↓
-tunnel-client
-  ↓
-WindowsBridge MCP
-  ↓
+authenticated loopback supervisor/router :18766
+  ├─ active WindowsBridge generation :18771
+  └─ candidate WindowsBridge generation :18772
+       ↓
 Windows
 ```
 
