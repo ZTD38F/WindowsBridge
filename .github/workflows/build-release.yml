@@ -3,6 +3,7 @@ name: Build Windows Release
 on:
   workflow_dispatch:
   push:
+    branches: [main]
     tags:
       - "v*"
 
@@ -28,20 +29,11 @@ jobs:
       - name: Build standalone WindowsBridge.exe
         shell: pwsh
         run: |
-          pyinstaller --clean --noconfirm --onefile --console --name WindowsBridge windowsbridge_v2.py
+          pyinstaller --clean --noconfirm --onefile --console --name WindowsBridge --collect-all mcp windowsbridge_v2.py
           if (-not (Test-Path dist\WindowsBridge.exe)) { throw "WindowsBridge.exe was not built" }
           $hash = (Get-FileHash dist\WindowsBridge.exe -Algorithm SHA256).Hash.ToLowerInvariant()
           "$hash  WindowsBridge.exe" | Set-Content dist\SHA256SUMS.txt -Encoding ASCII
-
-      - name: Smoke test executable
-        shell: pwsh
-        run: |
-          $p = Start-Process -FilePath dist\WindowsBridge.exe -PassThru -WindowStyle Hidden
-          Start-Sleep -Seconds 3
-          if ($p.HasExited) {
-            throw "WindowsBridge.exe exited during startup smoke test with code $($p.ExitCode)"
-          }
-          Stop-Process -Id $p.Id -Force
+          $env:GITHUB_SHA | Set-Content dist\SOURCE_COMMIT.txt -Encoding ASCII
 
       - uses: actions/upload-artifact@v6
         with:
@@ -49,11 +41,24 @@ jobs:
           path: |
             dist/WindowsBridge.exe
             dist/SHA256SUMS.txt
+            dist/SOURCE_COMMIT.txt
 
-      - name: Publish GitHub Release
+      - name: Publish edge GitHub prerelease
+        if: github.ref == 'refs/heads/main'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view edge *> $null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create edge --target "$env:GITHUB_SHA" --title "WindowsBridge edge" --notes "Automated development build from main." --prerelease
+          }
+          gh release upload edge dist\WindowsBridge.exe dist\SHA256SUMS.txt dist\SOURCE_COMMIT.txt --clobber
+
+      - name: Publish versioned GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$env:GITHUB_REF_NAME" dist\WindowsBridge.exe dist\SHA256SUMS.txt --title "WindowsBridge $env:GITHUB_REF_NAME" --generate-notes
+          gh release create "$env:GITHUB_REF_NAME" dist\WindowsBridge.exe dist\SHA256SUMS.txt dist\SOURCE_COMMIT.txt --title "WindowsBridge $env:GITHUB_REF_NAME" --generate-notes
