@@ -300,6 +300,13 @@ function Update-Transport([string]$TargetSha) {
     } finally { Remove-Item $tmpDir -Recurse -Force -ErrorAction SilentlyContinue }
 }
 
+function Invoke-CurrentGenerationMaintenance([string]$TargetSha) {
+    Ensure-NewTopology $TargetSha
+    $release = Stage-Release $TargetSha
+    Update-Supervisor (Join-Path $release "management\supervisor.py")
+    Update-Transport $TargetSha
+}
+
 if (-not (Test-Path $Config) -or -not (Test-Path $Current)) { throw "WindowsBridge is not installed." }
 New-Item -ItemType Directory -Force -Path $State,$Releases,$Management | Out-Null
 
@@ -312,7 +319,11 @@ try {
 
     $currentSha=(Get-Content $Current -Raw).Trim()
     $targetSha=Resolve-Target $Channel
-    if(-not $Force -and $currentSha -eq $targetSha){Log "ok already current $currentSha";exit 0}
+    if(-not $Force -and $currentSha -eq $targetSha){
+        Invoke-CurrentGenerationMaintenance $targetSha
+        Log "ok already current $currentSha; deferred maintenance checked"
+        exit 0
+    }
 
     Ensure-NewTopology $targetSha
     $candidate=Stage-Release $targetSha
@@ -372,8 +383,7 @@ try {
     Copy-Item (Join-Path $candidate "management\windowsbridgectl.ps1") (Join-Path $env:SystemRoot "System32\windowsbridgectl.ps1") -Force
     Write-State "COMMITTED" $currentSha $targetSha $previousGeneration $previousPort $previousPid $candidatePort $candidatePid
     Stop-Pid $previousPid
-    Update-Supervisor (Join-Path $candidate "management\supervisor.py")
-    Update-Transport $targetSha
+    Invoke-CurrentGenerationMaintenance $targetSha
     Log "ok seamless runtime activation $targetSha tunnel_pid=$(Read-Pid $TunnelPidFile)"
 } finally {
     $env:UV_PYTHON_INSTALL_DIR=$null;$env:UV_CACHE_DIR=$null;$env:UV_PYTHON_NO_REGISTRY=$null;$env:UV_PYTHON_INSTALL_BIN=$null
