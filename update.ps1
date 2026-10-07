@@ -74,7 +74,7 @@ function Write-State(
     [string]$Rollback = ""
 ) {
     $transaction = [guid]::NewGuid().ToString("N")
-    if (Test-Path $Journal) {
+    if ($Phase -ne "STAGED" -and (Test-Path $Journal)) {
         try {
             $old = Get-Content $Journal -Raw | ConvertFrom-Json
             if ($old.transaction_id) { $transaction = [string]$old.transaction_id }
