@@ -183,33 +183,49 @@ function Resolve-Target([string]$Ref) {
     return $sha
 }
 
+function Remove-StaleReleaseStages {
+    $cutoff = (Get-Date).ToUniversalTime().AddHours(-24)
+    Get-ChildItem -LiteralPath $Releases -Directory -Force -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -like ".stage-*" -and $_.LastWriteTimeUtc -lt $cutoff } |
+        ForEach-Object {
+            Log "Removing stale release stage $($_.Name)"
+            Remove-Item -LiteralPath $_.FullName -Recurse -Force -ErrorAction Stop
+        }
+}
+
 function Stage-Release([string]$Sha) {
     $release = Join-Path $Releases $Sha
     if (Test-Path (Join-Path $release "app\http_runtime.py")) { return $release }
     $stage = Join-Path $Releases (".stage-" + [guid]::NewGuid().ToString("N"))
-    New-Item -ItemType Directory -Force -Path (Join-Path $stage "app"),(Join-Path $stage "management") | Out-Null
-    $base = "https://raw.githubusercontent.com/$Repo/$Sha"
-    foreach ($name in @("windowsbridge.py","http_runtime.py","requirements.lock")) {
-        Invoke-WebRequest -UseBasicParsing "$base/$name" -OutFile (Join-Path $stage "app\$name")
+    try {
+        New-Item -ItemType Directory -Force -Path (Join-Path $stage "app"),(Join-Path $stage "management") | Out-Null
+        $base = "https://raw.githubusercontent.com/$Repo/$Sha"
+        foreach ($name in @("windowsbridge.py","http_runtime.py","requirements.lock")) {
+            Invoke-WebRequest -UseBasicParsing "$base/$name" -OutFile (Join-Path $stage "app\$name")
+        }
+        foreach ($name in @("update.ps1","windowsbridgectl.ps1","supervisor.py")) {
+            Invoke-WebRequest -UseBasicParsing "$base/$name" -OutFile (Join-Path $stage "management\$name")
+        }
+        $uv = Join-Path $Root "bin\uv.exe"
+        if (-not (Test-Path $uv)) { throw "Managed uv runtime is missing." }
+        $env:UV_PYTHON_INSTALL_DIR = Join-Path $Root "runtime\python"
+        $env:UV_CACHE_DIR = Join-Path $Root "cache\uv"
+        $env:UV_PYTHON_NO_REGISTRY = "1"
+        $env:UV_PYTHON_INSTALL_BIN = "0"
+        & $uv venv --python 3.12 (Join-Path $stage "venv")
+        if ($LASTEXITCODE -ne 0) { throw "uv venv failed." }
+        $python = Join-Path $stage "venv\Scripts\python.exe"
+        & $uv pip install --python $python -r (Join-Path $stage "app\requirements.lock")
+        if ($LASTEXITCODE -ne 0) { throw "dependency install failed." }
+        & $python -m py_compile (Join-Path $stage "app\windowsbridge.py") (Join-Path $stage "app\http_runtime.py") (Join-Path $stage "management\supervisor.py")
+        if ($LASTEXITCODE -ne 0) { throw "candidate compile failed." }
+        Move-Item $stage $release
+        return $release
+    } finally {
+        if (Test-Path -LiteralPath $stage) {
+            Remove-Item -LiteralPath $stage -Recurse -Force -ErrorAction SilentlyContinue
+        }
     }
-    foreach ($name in @("update.ps1","windowsbridgectl.ps1","supervisor.py")) {
-        Invoke-WebRequest -UseBasicParsing "$base/$name" -OutFile (Join-Path $stage "management\$name")
-    }
-    $uv = Join-Path $Root "bin\uv.exe"
-    if (-not (Test-Path $uv)) { throw "Managed uv runtime is missing." }
-    $env:UV_PYTHON_INSTALL_DIR = Join-Path $Root "runtime\python"
-    $env:UV_CACHE_DIR = Join-Path $Root "cache\uv"
-    $env:UV_PYTHON_NO_REGISTRY = "1"
-    $env:UV_PYTHON_INSTALL_BIN = "0"
-    & $uv venv --python 3.12 (Join-Path $stage "venv")
-    if ($LASTEXITCODE -ne 0) { throw "uv venv failed." }
-    $python = Join-Path $stage "venv\Scripts\python.exe"
-    & $uv pip install --python $python -r (Join-Path $stage "app\requirements.lock")
-    if ($LASTEXITCODE -ne 0) { throw "dependency install failed." }
-    & $python -m py_compile (Join-Path $stage "app\windowsbridge.py") (Join-Path $stage "app\http_runtime.py") (Join-Path $stage "management\supervisor.py")
-    if ($LASTEXITCODE -ne 0) { throw "candidate compile failed." }
-    Move-Item $stage $release
-    return $release
 }
 
 function Ensure-NewTopology([string]$Target) {
@@ -316,6 +332,7 @@ try {
     if(-not $locked){Log "skip another update is running";exit 0}
     if(-not $Force){Start-Sleep -Seconds (Get-Random -Minimum 0 -Maximum 900)}
     Recover-Unfinished
+    Remove-StaleReleaseStages
 
     $currentSha=(Get-Content $Current -Raw).Trim()
     $targetSha=Resolve-Target $Channel
