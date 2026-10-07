@@ -150,8 +150,8 @@ function Start-Backend([string]$Release, [int]$Port) {
     }
 }
 
-function Stop-Pid([int]$Pid) {
-    if ($Pid -gt 0) { Stop-Process -Id $Pid -ErrorAction SilentlyContinue }
+function Stop-Pid([int]$ProcessId) {
+    if ($ProcessId -gt 0) { Stop-Process -Id $ProcessId -ErrorAction SilentlyContinue }
 }
 
 function Recover-Unfinished {
@@ -163,11 +163,17 @@ function Recover-Unfinished {
         Set-Route ([string]$j.previous_generation) ([int]$j.previous_port)
     }
     Stop-Pid ([int]$j.candidate_pid)
+    if ($j.previous_generation) {
+        Set-Content $Current ([string]$j.previous_generation) -Encoding ASCII
+    }
     if (Test-ProcessId $j.previous_pid) { Set-Content $ServerPidFile ([int]$j.previous_pid) -Encoding ASCII }
     $j.phase = "FAILED_ROLLED_BACK"
+    $j.current_generation = [string]$j.previous_generation
     $j.rollback_reason = "interrupted update recovered"
     $j.updated_at = (Get-Date).ToString("o")
-    $j | ConvertTo-Json -Depth 10 -Compress | Set-Content $Journal -Encoding UTF8
+    $tmp = "$Journal.tmp"
+    $j | ConvertTo-Json -Depth 10 -Compress | Set-Content $tmp -Encoding UTF8
+    Move-Item $tmp $Journal -Force
 }
 
 function Resolve-Target([string]$Ref) {
