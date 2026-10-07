@@ -6,6 +6,12 @@ function Assert-Equal([object]$Expected, [object]$Actual, [string]$Message) {
     }
 }
 
+function Assert-NotEqual([object]$Unexpected, [object]$Actual, [string]$Message) {
+    if ([string]$Unexpected -eq [string]$Actual) {
+        throw "$Message Both=[$Actual]"
+    }
+}
+
 $originalProgramData = $env:ProgramData
 $fixtureRoot = Join-Path ([IO.Path]::GetTempPath()) ("WindowsBridge recovery é " + [guid]::NewGuid().ToString("N"))
 try {
@@ -20,6 +26,19 @@ try {
     New-Item -ItemType Directory -Force -Path $State,$Releases,$Management | Out-Null
     $previous = "1111111111111111111111111111111111111111"
     $candidate = "2222222222222222222222222222222222222222"
+    Write-State "STAGED" $previous $candidate $previous 18771 $PID 18772 0
+    $firstTransaction = (Get-Content -LiteralPath $Journal -Raw | ConvertFrom-Json).transaction_id
+    Write-State "COMMITTED" $previous $candidate $previous 18771 $PID 18772 0
+    $committedTransaction = (Get-Content -LiteralPath $Journal -Raw | ConvertFrom-Json).transaction_id
+    Assert-Equal $firstTransaction $committedTransaction "One update must keep its transaction ID."
+
+    $nextCandidate = "3333333333333333333333333333333333333333"
+    Write-State "STAGED" $candidate $nextCandidate $candidate 18772 $PID 18771 0
+    $secondTransaction = (Get-Content -LiteralPath $Journal -Raw | ConvertFrom-Json).transaction_id
+    Assert-NotEqual $firstTransaction $secondTransaction "A new staged update must start a new transaction."
+    Write-State "CANDIDATE_STARTING" $candidate $nextCandidate $candidate 18772 $PID 18771 0
+    Assert-Equal $secondTransaction ((Get-Content -LiteralPath $Journal -Raw | ConvertFrom-Json).transaction_id) "Later phases must retain the new transaction ID."
+
     $phases = @(
         "STAGED",
         "DEFERRED_STATEFUL_HANDLES",
