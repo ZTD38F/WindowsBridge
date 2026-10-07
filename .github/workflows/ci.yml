@@ -44,9 +44,11 @@ jobs:
           }
           if ($failed) { exit 1 }
 
-      - name: Exercise interrupted update recovery matrix
+      - name: Exercise updater recovery and concurrency contracts
         shell: powershell
-        run: .\\tests\\update_recovery_integration.ps1
+        run: |
+          .\\tests\\update_recovery_integration.ps1
+          .\\tests\\update_mutex_integration.ps1
 
       - name: Validate first-run onboarding contract
         shell: pwsh
