@@ -150,8 +150,8 @@ function Start-Backend([string]$Release, [int]$Port) {
     }
 }
 
-function Stop-Pid([int]$Pid) {
-    if ($Pid -gt 0) { Stop-Process -Id $Pid -ErrorAction SilentlyContinue }
+function Stop-Pid([int]$ProcessId) {
+    if ($ProcessId -gt 0) { Stop-Process -Id $ProcessId -ErrorAction SilentlyContinue }
 }
 
 function Recover-Unfinished {
