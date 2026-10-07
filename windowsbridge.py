@@ -33,7 +33,7 @@ if sys.platform != "win32":
 
 import winreg
 
-VERSION = "0.4.2"
+VERSION = "0.4.3"
 mcp = MCPServer("WindowsBridge")
 
 

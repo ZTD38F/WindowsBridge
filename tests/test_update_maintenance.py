@@ -37,5 +37,28 @@ class UpdateMaintenanceContractTest(unittest.TestCase):
         self.assertLess(supervisor, transport)
 
 
+    def test_failed_and_abandoned_stages_are_cleaned_safely(self):
+        cleanup_start = UPDATER.index("function Remove-StaleReleaseStages")
+        cleanup_end = UPDATER.index("function Stage-Release", cleanup_start)
+        cleanup = UPDATER[cleanup_start:cleanup_end]
+        self.assertIn('AddHours(-24)', cleanup)
+        self.assertIn('Where-Object { $_.Name -like ".stage-*"', cleanup)
+        self.assertIn("Remove-Item -LiteralPath $_.FullName", cleanup)
+
+        stage_start = cleanup_end
+        stage_end = UPDATER.index("function Ensure-NewTopology", stage_start)
+        stage = UPDATER[stage_start:stage_end]
+        finally_block = stage.index("} finally {")
+        guarded_delete = stage.index("Remove-Item -LiteralPath $stage", finally_block)
+        self.assertLess(finally_block, guarded_delete)
+
+    def test_stale_cleanup_runs_only_after_update_mutex_is_acquired(self):
+        lock = UPDATER.index("$mutex.WaitOne(0)")
+        cleanup = UPDATER.index("Remove-StaleReleaseStages", lock)
+        resolution = UPDATER.index("$currentSha=", cleanup)
+        self.assertLess(lock, cleanup)
+        self.assertLess(cleanup, resolution)
+
+
 if __name__ == "__main__":
     unittest.main()
