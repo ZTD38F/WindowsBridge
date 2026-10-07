@@ -28,6 +28,7 @@ $TaskName = "WindowsBridge"
 $MutexName = "Global\WindowsBridgeUpdate"
 $RouterBase = "http://127.0.0.1:18766"
 $TunnelHealth = "http://127.0.0.1:18765"
+$script:ResolvedRelease = $null
 
 function Log([string]$Message) {
     New-Item -ItemType Directory -Force -Path (Split-Path $Log) | Out-Null
@@ -172,10 +173,12 @@ function Recover-Unfinished {
 function Resolve-Target([string]$Ref) {
     $headers = @{"User-Agent"="WindowsBridge-Updater"}
     $resolved = $Ref
+    $script:ResolvedRelease = $null
     if ($Ref -eq "stable") {
         $release = Invoke-RestMethod "https://api.github.com/repos/$Repo/releases/latest" -Headers $headers
         if ($release.draft -or $release.prerelease) { throw "Latest stable release is not eligible for automatic update." }
         $resolved = [string]$release.tag_name
+        $script:ResolvedRelease = $release
     }
     $remote = Invoke-RestMethod "https://api.github.com/repos/$Repo/commits/$resolved" -Headers $headers
     $sha = [string]$remote.sha
@@ -193,18 +196,74 @@ function Remove-StaleReleaseStages {
         }
 }
 
+function Assert-ReleaseAssetDigest([object]$Asset, [string]$Path) {
+    if (-not $Asset -or [string]$Asset.digest -notmatch '^sha256:[0-9a-fA-F]{64}$') {
+        throw "Release asset is missing a valid SHA-256 digest."
+    }
+    $expected = ([string]$Asset.digest).Substring(7).ToLowerInvariant()
+    $actual = (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($actual -ne $expected) { throw "Release asset digest mismatch: $($Asset.name)" }
+}
+
+function Copy-VerifiedReleaseBundle([object]$Release, [string]$Sha, [string]$Stage) {
+    if (-not $Release -or [string]$Release.tag_name -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+$') {
+        throw "Stable release metadata is invalid."
+    }
+    $zipName = "WindowsBridge-$($Release.tag_name).zip"
+    $zipAsset = $Release.assets | Where-Object { $_.name -eq $zipName } | Select-Object -First 1
+    $manifestAsset = $Release.assets | Where-Object { $_.name -eq "bridge-release.json" } | Select-Object -First 1
+    if (-not $zipAsset -or -not $manifestAsset) { throw "Required stable release assets are missing." }
+
+    $bundle = Join-Path $Stage ".bundle"
+    $expanded = Join-Path $bundle "expanded"
+    New-Item -ItemType Directory -Force -Path $bundle,$expanded | Out-Null
+    $zipPath = Join-Path $bundle $zipName
+    $manifestPath = Join-Path $bundle "bridge-release.json"
+    Invoke-WebRequest -UseBasicParsing $zipAsset.browser_download_url -OutFile $zipPath
+    Invoke-WebRequest -UseBasicParsing $manifestAsset.browser_download_url -OutFile $manifestPath
+    Assert-ReleaseAssetDigest $zipAsset $zipPath
+    Assert-ReleaseAssetDigest $manifestAsset $manifestPath
+
+    $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+    if ([string]$manifest.bridge -ne "WindowsBridge" -or [string]$manifest.source_commit -ne $Sha) {
+        throw "Release manifest identity does not match the resolved commit."
+    }
+    if ([string]$manifest.tag -ne [string]$Release.tag_name -or [string]$manifest.update_kind -ne "runtime") {
+        throw "Release manifest tag or update kind is incompatible."
+    }
+    if ([int]$manifest.supervisor_protocol -ne 1 -or [int]$manifest.config_schema -ne 1 -or [int]$manifest.state_schema -ne 2) {
+        throw "Release manifest declares an unsupported protocol or schema."
+    }
+
+    Expand-Archive -LiteralPath $zipPath -DestinationPath $expanded -Force
+    foreach ($name in @("windowsbridge.py","http_runtime.py","requirements.lock")) {
+        $source = Join-Path $expanded $name
+        if (-not (Test-Path -LiteralPath $source -PathType Leaf)) { throw "Release bundle is missing $name." }
+        Copy-Item -LiteralPath $source -Destination (Join-Path $Stage "app\$name")
+    }
+    foreach ($name in @("update.ps1","windowsbridgectl.ps1","supervisor.py")) {
+        $source = Join-Path $expanded $name
+        if (-not (Test-Path -LiteralPath $source -PathType Leaf)) { throw "Release bundle is missing $name." }
+        Copy-Item -LiteralPath $source -Destination (Join-Path $Stage "management\$name")
+    }
+}
+
 function Stage-Release([string]$Sha) {
     $release = Join-Path $Releases $Sha
     if (Test-Path (Join-Path $release "app\http_runtime.py")) { return $release }
     $stage = Join-Path $Releases (".stage-" + [guid]::NewGuid().ToString("N"))
     try {
         New-Item -ItemType Directory -Force -Path (Join-Path $stage "app"),(Join-Path $stage "management") | Out-Null
-        $base = "https://raw.githubusercontent.com/$Repo/$Sha"
-        foreach ($name in @("windowsbridge.py","http_runtime.py","requirements.lock")) {
-            Invoke-WebRequest -UseBasicParsing "$base/$name" -OutFile (Join-Path $stage "app\$name")
-        }
-        foreach ($name in @("update.ps1","windowsbridgectl.ps1","supervisor.py")) {
-            Invoke-WebRequest -UseBasicParsing "$base/$name" -OutFile (Join-Path $stage "management\$name")
+        if ($null -ne $script:ResolvedRelease) {
+            Copy-VerifiedReleaseBundle $script:ResolvedRelease $Sha $stage
+        } else {
+            $base = "https://raw.githubusercontent.com/$Repo/$Sha"
+            foreach ($name in @("windowsbridge.py","http_runtime.py","requirements.lock")) {
+                Invoke-WebRequest -UseBasicParsing "$base/$name" -OutFile (Join-Path $stage "app\$name")
+            }
+            foreach ($name in @("update.ps1","windowsbridgectl.ps1","supervisor.py")) {
+                Invoke-WebRequest -UseBasicParsing "$base/$name" -OutFile (Join-Path $stage "management\$name")
+            }
         }
         $uv = Join-Path $Root "bin\uv.exe"
         if (-not (Test-Path $uv)) { throw "Managed uv runtime is missing." }
