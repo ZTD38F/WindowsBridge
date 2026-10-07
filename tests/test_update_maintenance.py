@@ -60,5 +60,43 @@ class UpdateMaintenanceContractTest(unittest.TestCase):
         self.assertLess(cleanup, resolution)
 
 
+class VerifiedStableBundleContractTest(unittest.TestCase):
+    def test_stable_resolution_retains_release_metadata(self):
+        resolve_start = UPDATER.index("function Resolve-Target")
+        resolve_end = UPDATER.index("function Remove-StaleReleaseStages", resolve_start)
+        resolve = UPDATER[resolve_start:resolve_end]
+
+        self.assertIn('$script:ResolvedRelease = $release', resolve)
+        self.assertIn('if ($release.draft -or $release.prerelease)', resolve)
+        self.assertIn("return $sha", resolve)
+
+    def test_stable_bundle_requires_api_digests_and_manifest_identity(self):
+        verify_start = UPDATER.index("function Assert-ReleaseAssetDigest")
+        verify_end = UPDATER.index("function Stage-Release", verify_start)
+        verification = UPDATER[verify_start:verify_end]
+
+        self.assertIn("^sha256:[0-9a-fA-F]{64}$", verification)
+        self.assertEqual(verification.count("Assert-ReleaseAssetDigest"), 3)
+        self.assertIn('$manifest.source_commit -ne $Sha', verification)
+        self.assertIn('$manifest.tag -ne [string]$Release.tag_name', verification)
+        self.assertIn('$manifest.update_kind -ne "runtime"', verification)
+        self.assertIn('$manifest.supervisor_protocol -ne 1', verification)
+        self.assertIn('$manifest.config_schema -ne 1', verification)
+        self.assertIn('$manifest.state_schema -ne 2', verification)
+
+    def test_stable_stage_uses_bundle_and_raw_fallback_is_non_release_only(self):
+        stage_start = UPDATER.index("function Stage-Release")
+        stage_end = UPDATER.index("function Ensure-NewTopology", stage_start)
+        stage = UPDATER[stage_start:stage_end]
+
+        verified = stage.index("if ($null -ne $script:ResolvedRelease)")
+        copy_bundle = stage.index("Copy-VerifiedReleaseBundle", verified)
+        fallback = stage.index("} else {", copy_bundle)
+        raw_download = stage.index("raw.githubusercontent.com", fallback)
+        self.assertLess(verified, copy_bundle)
+        self.assertLess(copy_bundle, fallback)
+        self.assertLess(fallback, raw_download)
+
+
 if __name__ == "__main__":
     unittest.main()
