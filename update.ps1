@@ -50,9 +50,29 @@ function Read-Pid([string]$Path) {
     return 0
 }
 
-function Assert-TunnelContinuity([int]$ExpectedProcessId) {
-    $actualProcessId = Read-Pid $TunnelPidFile
-    if ($ExpectedProcessId -le 0 -or $actualProcessId -ne $ExpectedProcessId -or -not (Test-ProcessId $ExpectedProcessId)) {
+function Get-ProcessIdentity([int]$ProcessId) {
+    if ($ProcessId -le 0) { return $null }
+    $process = Get-Process -Id $ProcessId -ErrorAction SilentlyContinue
+    if ($null -eq $process) { return $null }
+    try {
+        $started = $process.StartTime.ToUniversalTime().Ticks
+    } catch {
+        return $null
+    }
+    return [pscustomobject]@{
+        process_id = [int]$process.Id
+        start_time_utc_ticks = [long]$started
+    }
+}
+
+function Assert-TunnelContinuity([object]$ExpectedIdentity) {
+    $actualIdentity = Get-ProcessIdentity (Read-Pid $TunnelPidFile)
+    if (
+        $null -eq $ExpectedIdentity -or
+        $null -eq $actualIdentity -or
+        [int]$actualIdentity.process_id -ne [int]$ExpectedIdentity.process_id -or
+        [long]$actualIdentity.start_time_utc_ticks -ne [long]$ExpectedIdentity.start_time_utc_ticks
+    ) {
         throw "Tunnel transport continuity was lost during an ordinary runtime update."
     }
 }
@@ -499,8 +519,8 @@ try {
     $previousPort=[int]$route.port
     $previousPid=Read-Pid $ServerPidFile
     $candidatePort=if($previousPort -eq 18771){18772}else{18771}
-    $tunnelPidBefore=Read-Pid $TunnelPidFile
-    Assert-TunnelContinuity $tunnelPidBefore
+    $tunnelIdentityBefore=Get-ProcessIdentity (Read-Pid $TunnelPidFile)
+    Assert-TunnelContinuity $tunnelIdentityBefore
     Write-State "STAGED" $currentSha $targetSha $previousGeneration $previousPort $previousPid $candidatePort 0
 
     $runtime=Invoke-LocalJson "http://127.0.0.1:$previousPort/__bridge/runtime-status" "X-Bridge-Backend-Token" $BackendTokenFile
@@ -545,7 +565,7 @@ try {
         Start-Sleep 3
         if(-not (Test-Backend $candidatePort)){throw "Candidate failed observation."}
         $null=Get-Tools $RouterBase "X-Bridge-Token" $RouterTokenFile
-        Assert-TunnelContinuity $tunnelPidBefore
+        Assert-TunnelContinuity $tunnelIdentityBefore
     } catch {
         $null = Rollback-AfterSwitch $currentSha $targetSha $previousGeneration $previousPort $previousPid $candidatePort $candidatePid $_.Exception.Message
         throw

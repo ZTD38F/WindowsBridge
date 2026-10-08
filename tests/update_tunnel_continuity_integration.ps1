@@ -22,25 +22,27 @@ try {
     New-Item -ItemType Directory -Force -Path $State | Out-Null
     $holder = Start-Process -FilePath "powershell.exe" -ArgumentList @("-NoProfile","-Command","Start-Sleep -Seconds 60") -PassThru -WindowStyle Hidden
     Set-Content -LiteralPath $TunnelPidFile -Value $holder.Id -Encoding ASCII
+    $holderIdentity = Get-ProcessIdentity $holder.Id
+    if ($null -eq $holderIdentity) { throw "Could not capture the tunnel process identity." }
 
-    Assert-TunnelContinuity $holder.Id
-    Assert-TunnelContinuity $holder.Id
+    Assert-TunnelContinuity $holderIdentity
+    Assert-TunnelContinuity $holderIdentity
 
     $replacement = Start-Process -FilePath "powershell.exe" -ArgumentList @("-NoProfile","-Command","Start-Sleep -Seconds 60") -PassThru -WindowStyle Hidden
     Set-Content -LiteralPath $TunnelPidFile -Value $replacement.Id -Encoding ASCII
-    Assert-Throws { Assert-TunnelContinuity $holder.Id } "A changed tunnel PID was accepted."
+    Assert-Throws { Assert-TunnelContinuity $holderIdentity } "A changed tunnel process was accepted."
 
     Set-Content -LiteralPath $TunnelPidFile -Value $holder.Id -Encoding ASCII
     Stop-Process -Id $holder.Id -Force
     $holder.WaitForExit()
-    Assert-Throws { Assert-TunnelContinuity $holder.Id } "A dead tunnel process was accepted."
+    Assert-Throws { Assert-TunnelContinuity $holderIdentity } "A dead or PID-reused tunnel process was accepted."
 
     $activation = $source.Substring($markerIndex)
-    $capture = $activation.IndexOf('$tunnelPidBefore=Read-Pid $TunnelPidFile')
-    $preflight = $activation.IndexOf('Assert-TunnelContinuity $tunnelPidBefore', $capture)
+    $capture = $activation.IndexOf('$tunnelIdentityBefore=Get-ProcessIdentity (Read-Pid $TunnelPidFile)')
+    $preflight = $activation.IndexOf('Assert-TunnelContinuity $tunnelIdentityBefore', $capture)
     $staged = $activation.IndexOf('Write-State "STAGED"', $preflight)
     $observing = $activation.IndexOf('Write-State "OBSERVING"', $staged)
-    $postObservation = $activation.IndexOf('Assert-TunnelContinuity $tunnelPidBefore', $observing)
+    $postObservation = $activation.IndexOf('Assert-TunnelContinuity $tunnelIdentityBefore', $observing)
     $commit = $activation.IndexOf('Set-Content $Current $targetSha', $postObservation)
     if ($capture -lt 0 -or $preflight -le $capture -or $staged -le $preflight) {
         throw "Tunnel continuity preflight is not before staging."
