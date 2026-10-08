@@ -206,6 +206,31 @@ function Restore-PreviousBackend([object]$JournalState) {
     throw "Previous generation failed to become healthy; route was not changed."
 }
 
+function Rollback-AfterSwitch(
+    [string]$CurrentGeneration,
+    [string]$CandidateGeneration,
+    [string]$PreviousGeneration,
+    [int]$PreviousPort,
+    [int]$PreviousPid,
+    [int]$CandidatePort,
+    [int]$CandidatePid,
+    [string]$Failure
+) {
+    $state = [pscustomobject]@{
+        previous_generation = $PreviousGeneration
+        previous_port = $PreviousPort
+        previous_pid = $PreviousPid
+    }
+    $restored = Restore-PreviousBackend $state
+    Set-Route $PreviousGeneration $PreviousPort
+    if ($CandidatePid -ne [int]$restored.process_id) {
+        Stop-Pid $CandidatePid
+    }
+    Set-Content $ServerPidFile ([int]$restored.process_id) -Encoding ASCII
+    Write-State "FAILED_ROLLED_BACK" $CurrentGeneration $CandidateGeneration $PreviousGeneration $PreviousPort ([int]$restored.process_id) $CandidatePort $CandidatePid $Failure "previous backend verified before route restore"
+    return $restored
+}
+
 function Recover-Unfinished {
     if (-not (Test-Path $Journal)) { return }
     try { $j = Get-Content $Journal -Raw | ConvertFrom-Json } catch { return }
@@ -522,9 +547,7 @@ try {
         $null=Get-Tools $RouterBase "X-Bridge-Token" $RouterTokenFile
         Assert-TunnelContinuity $tunnelPidBefore
     } catch {
-        Set-Route $previousGeneration $previousPort
-        Stop-Pid $candidatePid
-        Write-State "FAILED_ROLLED_BACK" $currentSha $targetSha $previousGeneration $previousPort $previousPid $candidatePort $candidatePid $_.Exception.Message "route restored before candidate retirement"
+        $null = Rollback-AfterSwitch $currentSha $targetSha $previousGeneration $previousPort $previousPid $candidatePort $candidatePid $_.Exception.Message
         throw
     }
 
