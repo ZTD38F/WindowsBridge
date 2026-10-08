@@ -55,6 +55,8 @@ function Get-ProcessIdentity([int]$ProcessId) {
     $process = Get-Process -Id $ProcessId -ErrorAction SilentlyContinue
     if ($null -eq $process) { return $null }
     try {
+        $process.Refresh()
+        if ($process.HasExited) { return $null }
         $started = $process.StartTime.ToUniversalTime().Ticks
     } catch {
         return $null
