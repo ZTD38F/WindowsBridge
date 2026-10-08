@@ -50,6 +50,13 @@ function Read-Pid([string]$Path) {
     return 0
 }
 
+function Assert-TunnelContinuity([int]$ExpectedProcessId) {
+    $actualProcessId = Read-Pid $TunnelPidFile
+    if ($ExpectedProcessId -le 0 -or $actualProcessId -ne $ExpectedProcessId -or -not (Test-ProcessId $ExpectedProcessId)) {
+        throw "Tunnel transport continuity was lost during an ordinary runtime update."
+    }
+}
+
 function Get-Route {
     if (-not (Test-Path $RouteFile)) { throw "route state is missing" }
     return Get-Content $RouteFile -Raw | ConvertFrom-Json
@@ -453,6 +460,8 @@ try {
     $previousPort=[int]$route.port
     $previousPid=Read-Pid $ServerPidFile
     $candidatePort=if($previousPort -eq 18771){18772}else{18771}
+    $tunnelPidBefore=Read-Pid $TunnelPidFile
+    Assert-TunnelContinuity $tunnelPidBefore
     Write-State "STAGED" $currentSha $targetSha $previousGeneration $previousPort $previousPid $candidatePort 0
 
     $runtime=Invoke-LocalJson "http://127.0.0.1:$previousPort/__bridge/runtime-status" "X-Bridge-Backend-Token" $BackendTokenFile
@@ -491,6 +500,7 @@ try {
         Start-Sleep 3
         if(-not (Test-Backend $candidatePort)){throw "Candidate failed observation."}
         $null=Get-Tools $RouterBase "X-Bridge-Token" $RouterTokenFile
+        Assert-TunnelContinuity $tunnelPidBefore
     } catch {
         Set-Route $previousGeneration $previousPort
         Stop-Pid $candidatePid
