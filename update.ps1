@@ -154,22 +154,61 @@ function Stop-Pid([int]$ProcessId) {
     if ($ProcessId -gt 0) { Stop-Process -Id $ProcessId -ErrorAction SilentlyContinue }
 }
 
+function Restore-PreviousBackend([object]$JournalState) {
+    $generation = [string]$JournalState.previous_generation
+    $port = [int]$JournalState.previous_port
+    $processId = [int]$JournalState.previous_pid
+    if ($generation -notmatch '^[0-9a-f]{40}$' -or $port -le 0) {
+        throw "Interrupted update has invalid previous generation state."
+    }
+    if ((Test-ProcessId $processId) -and (Test-Backend $port)) {
+        return [pscustomobject]@{ process_id = $processId; restarted = $false }
+    }
+
+    Stop-Pid $processId
+    $release = Join-Path $Releases $generation
+    $runtime = Join-Path $release "app\http_runtime.py"
+    $python = Join-Path $release "venv\Scripts\python.exe"
+    if (-not (Test-Path -LiteralPath $runtime -PathType Leaf) -or -not (Test-Path -LiteralPath $python -PathType Leaf)) {
+        throw "Previous generation cannot be restarted because its immutable runtime is incomplete."
+    }
+
+    Log "Restarting previous generation $generation on port $port before rollback"
+    $process = Start-Backend $release $port
+    for ($i = 0; $i -lt 40; $i++) {
+        if ((Test-ProcessId $process.Id) -and (Test-Backend $port)) {
+            return [pscustomobject]@{ process_id = [int]$process.Id; restarted = $true }
+        }
+        Start-Sleep -Milliseconds 250
+    }
+    Stop-Pid ([int]$process.Id)
+    throw "Previous generation failed to become healthy; route was not changed."
+}
+
 function Recover-Unfinished {
     if (-not (Test-Path $Journal)) { return }
     try { $j = Get-Content $Journal -Raw | ConvertFrom-Json } catch { return }
     if ($j.phase -in @("COMMITTED","FAILED_ROLLED_BACK","")) { return }
     Log "Recovering interrupted update phase=$($j.phase)"
-    if ($j.previous_generation -and [int]$j.previous_port -gt 0) {
-        Set-Route ([string]$j.previous_generation) ([int]$j.previous_port)
+
+    # A rollback route must never point at a dead backend. Restore and verify the
+    # previous immutable generation first, then switch routing at the boundary.
+    $restored = Restore-PreviousBackend $j
+    Set-Route ([string]$j.previous_generation) ([int]$j.previous_port)
+    if ([int]$j.candidate_pid -ne [int]$restored.process_id) {
+        Stop-Pid ([int]$j.candidate_pid)
     }
-    Stop-Pid ([int]$j.candidate_pid)
-    if ($j.previous_generation) {
-        Set-Content $Current ([string]$j.previous_generation) -Encoding ASCII
-    }
-    if (Test-ProcessId $j.previous_pid) { Set-Content $ServerPidFile ([int]$j.previous_pid) -Encoding ASCII }
+    Set-Content $Current ([string]$j.previous_generation) -Encoding ASCII
+    Set-Content $ServerPidFile ([int]$restored.process_id) -Encoding ASCII
+
     $j.phase = "FAILED_ROLLED_BACK"
     $j.current_generation = [string]$j.previous_generation
-    $j.rollback_reason = "interrupted update recovered"
+    $j.previous_pid = [int]$restored.process_id
+    $j.rollback_reason = if ($restored.restarted) {
+        "interrupted update recovered; previous backend restarted"
+    } else {
+        "interrupted update recovered"
+    }
     $j.updated_at = (Get-Date).ToString("o")
     $tmp = "$Journal.tmp"
     $j | ConvertTo-Json -Depth 10 -Compress | Set-Content $tmp -Encoding UTF8
