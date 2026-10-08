@@ -161,6 +161,20 @@ function Stop-Pid([int]$ProcessId) {
     if ($ProcessId -gt 0) { Stop-Process -Id $ProcessId -ErrorAction SilentlyContinue }
 }
 
+function Fail-CandidateBeforeSwitch(
+    [int]$CandidatePid,
+    [string]$CurrentGeneration,
+    [string]$CandidateGeneration,
+    [string]$PreviousGeneration,
+    [int]$PreviousPort,
+    [int]$PreviousPid,
+    [int]$CandidatePort,
+    [string]$Reason
+) {
+    Stop-Pid $CandidatePid
+    Write-State "FAILED_PRE_SWITCH" $CurrentGeneration $CandidateGeneration $PreviousGeneration $PreviousPort $PreviousPid $CandidatePort $CandidatePid $Reason
+}
+
 function Restore-PreviousBackend([object]$JournalState) {
     $generation = [string]$JournalState.previous_generation
     $port = [int]$JournalState.previous_port
@@ -472,14 +486,20 @@ try {
     }
 
     $oldTools=Get-Tools $RouterBase "X-Bridge-Token" $RouterTokenFile
-    $p=Start-Backend $candidate $candidatePort
-    $candidatePid=$p.Id
-    Write-State "CANDIDATE_STARTING" $currentSha $targetSha $previousGeneration $previousPort $previousPid $candidatePort $candidatePid
-    for($i=0;$i -lt 40;$i++){if((Test-ProcessId $candidatePid) -and (Test-Backend $candidatePort)){break};Start-Sleep -Milliseconds 250}
-    if(-not (Test-ProcessId $candidatePid) -or -not (Test-Backend $candidatePort)){Stop-Pid $candidatePid;Write-State "FAILED_PRE_SWITCH" $currentSha $targetSha $previousGeneration $previousPort $previousPid $candidatePort $candidatePid "candidate health failed";throw "Candidate health failed."}
-    $newTools=Get-Tools "http://127.0.0.1:$candidatePort" "X-Bridge-Backend-Token" $BackendTokenFile
-    Assert-CompatibleTools $oldTools $newTools
-    Write-State "CANDIDATE_HEALTHY" $currentSha $targetSha $previousGeneration $previousPort $previousPid $candidatePort $candidatePid
+    $candidatePid=0
+    try {
+        $p=Start-Backend $candidate $candidatePort
+        $candidatePid=$p.Id
+        Write-State "CANDIDATE_STARTING" $currentSha $targetSha $previousGeneration $previousPort $previousPid $candidatePort $candidatePid
+        for($i=0;$i -lt 40;$i++){if((Test-ProcessId $candidatePid) -and (Test-Backend $candidatePort)){break};Start-Sleep -Milliseconds 250}
+        if(-not (Test-ProcessId $candidatePid) -or -not (Test-Backend $candidatePort)){throw "Candidate health failed."}
+        $newTools=Get-Tools "http://127.0.0.1:$candidatePort" "X-Bridge-Backend-Token" $BackendTokenFile
+        Assert-CompatibleTools $oldTools $newTools
+        Write-State "CANDIDATE_HEALTHY" $currentSha $targetSha $previousGeneration $previousPort $previousPid $candidatePort $candidatePid
+    } catch {
+        Fail-CandidateBeforeSwitch $candidatePid $currentSha $targetSha $previousGeneration $previousPort $previousPid $candidatePort $_.Exception.Message
+        throw
+    }
 
     Set-Route $targetSha $candidatePort
     Write-State "SWITCHED" $currentSha $targetSha $previousGeneration $previousPort $previousPid $candidatePort $candidatePid
