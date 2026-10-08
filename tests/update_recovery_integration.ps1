@@ -213,7 +213,45 @@ try {
     if (-not (Test-ProcessId $restartedPid) -or -not (Test-Backend 18771)) { throw "Restarted previous backend is not healthy." }
     if (Test-ProcessId $candidatePid) { throw "Candidate remained alive after rollback." }
 
-    Write-Host "Interrupted update recovery matrix passed."
+    # Reproduce an immediate post-switch failure after the previous backend has
+    # already died. Live rollback must restart and verify previous before routing
+    # to it, then retire the failed candidate.
+    $liveCandidatePid = 730002
+    $script:fakeProcesses.Clear()
+    $script:healthyPorts.Clear()
+    $script:recoveryEvents.Clear()
+    $script:fakeProcesses[$liveCandidatePid] = 18772
+    $script:healthyPorts[18772] = $true
+    $script:routeGuardEnabled = $false
+    Set-Route $candidate 18772
+    $script:recoveryEvents.Clear()
+    $script:routeGuardEnabled = $true
+
+    $liveRollback = Rollback-AfterSwitch $previous $candidate $previous 18771 730001 18772 $liveCandidatePid "fixture observation failure"
+
+    $liveEvents = @($script:recoveryEvents)
+    $liveStartIndex = [Array]::IndexOf($liveEvents, "start:18771")
+    $liveRouteIndex = [Array]::IndexOf($liveEvents, "route:18771")
+    $liveStopIndex = [Array]::IndexOf($liveEvents, "stop:$liveCandidatePid")
+    if ($liveStartIndex -lt 0 -or $liveRouteIndex -le $liveStartIndex -or $liveStopIndex -le $liveRouteIndex) {
+        throw "Live rollback order must be start previous -> route previous -> stop candidate. Events=$($liveEvents -join ',')"
+    }
+    $liveJournal = Get-Content -LiteralPath $Journal -Raw | ConvertFrom-Json
+    Assert-Equal "FAILED_ROLLED_BACK" $liveJournal.phase "Live rollback phase was not recorded."
+    Assert-Equal ([int]$liveRollback.process_id) $liveJournal.previous_pid "Live rollback did not record the restarted backend PID."
+    Assert-Equal ([int]$liveRollback.process_id) ((Get-Content -LiteralPath $ServerPidFile -Raw).Trim()) "Server PID did not follow the restored backend."
+    Assert-Equal "previous backend verified before route restore" $liveJournal.rollback_reason "Live rollback reason did not prove safe ordering."
+    if (-not (Test-ProcessId ([int]$liveRollback.process_id)) -or -not (Test-Backend 18771)) { throw "Live rollback previous backend is not healthy." }
+    if (Test-ProcessId $liveCandidatePid) { throw "Live rollback left the failed candidate alive." }
+
+    $activation = $source.Substring($markerIndex)
+    $postSwitchCatch = $activation.IndexOf('$null = Rollback-AfterSwitch')
+    $commit = $activation.IndexOf('Set-Content $Current $targetSha', $postSwitchCatch)
+    if ($postSwitchCatch -lt 0 -or $commit -le $postSwitchCatch) {
+        throw "Production post-switch failure path is not wired through safe rollback."
+    }
+
+    Write-Host "Interrupted and live update recovery matrix passed."
 } finally {
     $env:ProgramData = $originalProgramData
     Remove-Item -LiteralPath $fixtureRoot -Recurse -Force -ErrorAction SilentlyContinue
