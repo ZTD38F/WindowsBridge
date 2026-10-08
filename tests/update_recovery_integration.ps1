@@ -87,6 +87,25 @@ try {
     Write-State "CANDIDATE_STARTING" $candidate $nextCandidate $candidate 18772 $PID 18771 0
     Assert-Equal $secondTransaction ((Get-Content -LiteralPath $Journal -Raw | ConvertFrom-Json).transaction_id) "Later phases must retain the new transaction ID."
 
+    # A candidate that fails health or MCP compatibility before the route switch
+    # must be retired immediately instead of occupying the inactive backend port.
+    $failedCandidatePid = 720001
+    $script:fakeProcesses[$failedCandidatePid] = 18771
+    Write-State "CANDIDATE_STARTING" $candidate $nextCandidate $candidate 18772 $PID 18771 $failedCandidatePid
+    Fail-CandidateBeforeSwitch $failedCandidatePid $candidate $nextCandidate $candidate 18772 $PID 18771 "fixture schema mismatch"
+    $preSwitchFailure = Get-Content -LiteralPath $Journal -Raw | ConvertFrom-Json
+    if (Test-ProcessId $failedCandidatePid) { throw "Failed pre-switch candidate remained alive." }
+    Assert-Equal "FAILED_PRE_SWITCH" $preSwitchFailure.phase "Pre-switch failure phase was not recorded."
+    Assert-Equal "fixture schema mismatch" $preSwitchFailure.failure_reason "Pre-switch failure reason was not recorded."
+
+    $activation = $source.Substring($markerIndex)
+    $candidateStart = $activation.IndexOf('$candidatePid=0')
+    $preSwitchCatch = $activation.IndexOf('Fail-CandidateBeforeSwitch $candidatePid', $candidateStart)
+    $routeSwitch = $activation.IndexOf('Set-Route $targetSha $candidatePort', $candidateStart)
+    if ($candidateStart -lt 0 -or $preSwitchCatch -le $candidateStart -or $routeSwitch -le $preSwitchCatch) {
+        throw "Candidate cleanup must be wired before the route switch."
+    }
+
     $phases = @(
         "STAGED",
         "DEFERRED_STATEFUL_HANDLES",
