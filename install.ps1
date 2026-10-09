@@ -335,7 +335,7 @@ try {
     $protected = [Security.Cryptography.ProtectedData]::Protect($keyBytes, $null, [Security.Cryptography.DataProtectionScope]::LocalMachine)
 
     [ordered]@{
-        version = "0.4.11"
+        version = "0.4.12"
         source_commit = $ResolvedRef
         tunnel_id = $TunnelId
         api_key_dpapi = [Convert]::ToBase64String($protected)
