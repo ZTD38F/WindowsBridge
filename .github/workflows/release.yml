@@ -57,7 +57,7 @@ jobs:
         run: |
           $dir = "WindowsBridge-$env:TAG"
           New-Item -ItemType Directory $dir | Out-Null
-          Copy-Item windowsbridge.py,http_runtime.py,supervisor.py,requirements.lock,install.ps1,update.ps1,update-state.psm1,windowsbridgectl.ps1,TUNNEL_CLIENT_VERSION,README.md $dir
+          Copy-Item windowsbridge.py,http_runtime.py,supervisor.py,requirements.lock,install.ps1,uninstall.ps1,update.ps1,update-state.psm1,windowsbridgectl.ps1,TUNNEL_CLIENT_VERSION,README.md $dir
           Compress-Archive -Path "$dir\*" -DestinationPath "$dir.zip"
           $hash=(Get-FileHash "$dir.zip" -Algorithm SHA256).Hash.ToLowerInvariant()
           "$hash  $dir.zip" | Set-Content SHA256SUMS.txt -Encoding ASCII
