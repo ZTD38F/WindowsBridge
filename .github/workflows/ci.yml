@@ -76,6 +76,7 @@ jobs:
           $agent = Get-Content windowsbridge.py -Raw
           $installer = Get-Content install.ps1 -Raw
           $updater = Get-Content update.ps1 -Raw
+          $uninstaller = Get-Content uninstall.ps1 -Raw
           $ctl = Get-Content windowsbridgectl.ps1 -Raw
 
           $toolCount = ([regex]'@mcp\.tool\(annotations=').Matches($agent).Count
@@ -101,6 +102,19 @@ jobs:
 
           if ($installer.Contains('raw.githubusercontent.com/ZTD38F/WindowsBridge/$SourceRef/install.ps1')) {
             throw "Elevation bootstrap must not redownload from a mutable source ref."
+          }
+
+          $requiredUninstaller = @(
+            'function Resolve-SourceCommit',
+            '$ResolvedBootstrapRef = Resolve-SourceCommit $SourceRef',
+            'raw.githubusercontent.com/$Repo/$ResolvedBootstrapRef/uninstall.ps1',
+            '"-SourceRef",$ResolvedBootstrapRef'
+          )
+          foreach ($value in $requiredUninstaller) {
+            if (-not $uninstaller.Contains($value)) { throw "Missing uninstaller safety contract: $value" }
+          }
+          if ($uninstaller.Contains('raw.githubusercontent.com/ZTD38F/WindowsBridge/stable/uninstall.ps1')) {
+            throw "Elevation bootstrap must not redownload the uninstaller from a mutable source ref."
           }
 
           $requiredUpdater = @(

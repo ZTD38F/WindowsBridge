@@ -1,8 +1,11 @@
 [CmdletBinding()]
-param()
+param(
+    [string]$SourceRef = "stable"
+)
 
 $ErrorActionPreference = "Stop"
-$SelfUrl = "https://raw.githubusercontent.com/ZTD38F/WindowsBridge/stable/uninstall.ps1"
+$ProgressPreference = "SilentlyContinue"
+$Repo = "ZTD38F/WindowsBridge"
 $TaskName = "WindowsBridge"
 $UpdateTaskName = "WindowsBridge Auto Update"
 $Root = Join-Path $env:ProgramData "WindowsBridge"
@@ -15,11 +18,29 @@ function Test-Administrator {
     return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 }
 
-if (-not (Test-Administrator)) {
-    $tmp = Join-Path $env:TEMP ("WindowsBridge-uninstall-" + [guid]::NewGuid().ToString("N") + ".ps1")
-    Invoke-WebRequest -UseBasicParsing $SelfUrl -OutFile $tmp
+function Resolve-SourceCommit([string]$Ref) {
+    if ($Ref -notmatch '^[A-Za-z0-9._-]{1,80}$') { throw "Invalid SourceRef." }
+
     try {
-        $args = @("-NoProfile","-ExecutionPolicy","Bypass","-File",('"{0}"' -f $tmp))
+        $commit = Invoke-RestMethod "https://api.github.com/repos/$Repo/commits/$Ref" -Headers @{"User-Agent"="WindowsBridge-Uninstaller"}
+    } catch {
+        throw "Could not resolve WindowsBridge source ref '$Ref' to an immutable GitHub commit: $($_.Exception.Message)"
+    }
+
+    $sha = [string]$commit.sha
+    if ($sha -notmatch '^[0-9a-f]{40}$') { throw "GitHub returned an invalid WindowsBridge commit SHA." }
+    return $sha
+}
+
+if (-not (Test-Administrator)) {
+    # Pin the uninstaller before crossing the UAC boundary. A mutable channel
+    # may move while the consent prompt is open; this exact commit cannot.
+    $ResolvedBootstrapRef = Resolve-SourceCommit $SourceRef
+    $selfUrl = "https://raw.githubusercontent.com/$Repo/$ResolvedBootstrapRef/uninstall.ps1"
+    $tmp = Join-Path $env:TEMP ("WindowsBridge-uninstall-" + [guid]::NewGuid().ToString("N") + ".ps1")
+    Invoke-WebRequest -UseBasicParsing $selfUrl -OutFile $tmp
+    try {
+        $args = @("-NoProfile","-ExecutionPolicy","Bypass","-File",('"{0}"' -f $tmp),"-SourceRef",$ResolvedBootstrapRef)
         $p = Start-Process -FilePath "powershell.exe" -Verb RunAs -ArgumentList $args -Wait -PassThru
         exit $p.ExitCode
     } finally {
