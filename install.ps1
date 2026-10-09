@@ -4,7 +4,8 @@ param(
     [string]$RuntimeApiKey,
     [string]$SourceRef = "stable",
     [switch]$AutoUpdate,
-    [switch]$DisableAutoUpdate
+    [switch]$DisableAutoUpdate,
+    [switch]$PreflightOnly
 )
 
 $ErrorActionPreference = "Stop"
@@ -39,6 +40,41 @@ function Test-Administrator {
     $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
     $principal = [Security.Principal.WindowsPrincipal]::new($identity)
     return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+}
+
+function Test-InstallerEnvironment {
+    if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) {
+        throw "WindowsBridge requires Windows."
+    }
+    if (-not [Environment]::Is64BitOperatingSystem) {
+        throw "WindowsBridge requires 64-bit Windows."
+    }
+    if ($PSVersionTable.PSVersion.Major -lt 5) {
+        throw "WindowsBridge requires Windows PowerShell 5.1 or PowerShell 7."
+    }
+
+    $requiredCommands = @(
+        "Expand-Archive",
+        "Get-FileHash",
+        "Invoke-RestMethod",
+        "Invoke-WebRequest",
+        "Start-Process"
+    )
+    foreach ($command in $requiredCommands) {
+        if (-not (Get-Command $command -ErrorAction SilentlyContinue)) {
+            throw "Required PowerShell command is unavailable: $command"
+        }
+    }
+
+    [Net.ServicePointManager]::SecurityProtocol =
+        [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+
+    return [ordered]@{
+        ok = $true
+        windows_64_bit = [Environment]::Is64BitOperatingSystem
+        powershell_version = [string]$PSVersionTable.PSVersion
+        powershell_edition = [string]$PSVersionTable.PSEdition
+    }
 }
 
 function ConvertFrom-Secure([Security.SecureString]$Secure) {
@@ -229,6 +265,12 @@ function Show-ConnectorSetup([string]$ResolvedTunnelId) {
     Write-Host "After saving the connector, rescan/sync its tools if ChatGPT asks." -ForegroundColor Gray
 }
 
+$InstallerEnvironment = Test-InstallerEnvironment
+if ($PreflightOnly) {
+    $InstallerEnvironment | ConvertTo-Json -Compress
+    exit 0
+}
+
 if (-not (Test-Administrator)) { Invoke-Elevated }
 
 New-Item -ItemType Directory -Force -Path $Root,$Bin,$Logs,$Releases,$Runtime,$Cache,$Management,$State,$Secrets | Out-Null
@@ -335,7 +377,7 @@ try {
     $protected = [Security.Cryptography.ProtectedData]::Protect($keyBytes, $null, [Security.Cryptography.DataProtectionScope]::LocalMachine)
 
     [ordered]@{
-        version = "0.4.13"
+        version = "0.4.14"
         source_commit = $ResolvedRef
         tunnel_id = $TunnelId
         api_key_dpapi = [Convert]::ToBase64String($protected)

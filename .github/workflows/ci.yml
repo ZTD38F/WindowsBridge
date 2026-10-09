@@ -44,6 +44,20 @@ jobs:
           }
           if ($failed) { exit 1 }
 
+      - name: Exercise installer preflight in Windows PowerShell 5.1
+        shell: powershell
+        run: |
+          if ($PSVersionTable.PSEdition -ne "Desktop" -or $PSVersionTable.PSVersion.Major -ne 5) {
+            throw "Expected the default Windows PowerShell 5.1 host."
+          }
+          $preflight = (.\install.ps1 -PreflightOnly | Out-String) | ConvertFrom-Json
+          if (-not $preflight.ok -or -not $preflight.windows_64_bit) {
+            throw "Installer preflight did not validate the Windows runner."
+          }
+          if ($preflight.powershell_edition -ne "Desktop") {
+            throw "Installer preflight did not execute in Windows PowerShell."
+          }
+
       - name: Exercise updater recovery and concurrency contracts
         shell: powershell
         run: |
