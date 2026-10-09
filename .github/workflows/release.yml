@@ -40,6 +40,18 @@ jobs:
             if($errors.Count){$failed=$true;$errors|Write-Host}
           }
           if($failed){exit 1}
+      - name: Exercise release integration gates
+        shell: pwsh
+        run: |
+          python -m unittest discover -s tests -v
+          if ($LASTEXITCODE -ne 0) { throw "Python integration tests failed." }
+
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tests\update_recovery_integration.ps1
+          if ($LASTEXITCODE -ne 0) { throw "Updater recovery integration tests failed." }
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tests\update_mutex_integration.ps1
+          if ($LASTEXITCODE -ne 0) { throw "Updater mutex integration tests failed." }
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tests\update_tunnel_continuity_integration.ps1
+          if ($LASTEXITCODE -ne 0) { throw "Tunnel continuity integration tests failed." }
       - name: Build immutable release bundle
         shell: pwsh
         run: |
