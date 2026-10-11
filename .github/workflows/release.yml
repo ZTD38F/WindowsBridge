@@ -26,6 +26,12 @@ jobs:
           $m = Select-String -Path windowsbridge.py -Pattern '^VERSION = "([0-9]+\.[0-9]+\.[0-9]+)"$'
           if (-not $m) { throw "WindowsBridge semantic version not found." }
           $version = $m.Matches[0].Groups[1].Value
+          $installerVersion = Select-String -Path install.ps1 -Pattern '^\s+version = "([0-9]+\.[0-9]+\.[0-9]+)"$'
+          if (-not $installerVersion) { throw "Installer package version not found." }
+          $installerVersion = $installerVersion.Matches[0].Groups[1].Value
+          if ($installerVersion -ne $version) {
+            throw "Runtime version $version does not match installer package version $installerVersion."
+          }
           "VERSION=$version" | Add-Content $env:GITHUB_ENV
           "TAG=v$version" | Add-Content $env:GITHUB_ENV
       - name: Validate release source
