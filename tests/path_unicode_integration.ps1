@@ -29,8 +29,15 @@ try {
         }
     }
 
-    $roundTrip = (& python -c "import sys; print(sys.argv[1])" $fixtureRoot | Out-String).Trim()
-    if ($LASTEXITCODE -ne 0 -or $roundTrip -ne $fixtureRoot) {
+    $utf8 = [Text.Encoding]::UTF8.GetBytes($fixtureRoot)
+    $sha256 = [Security.Cryptography.SHA256]::Create()
+    try {
+        $expectedPathHash = ([BitConverter]::ToString($sha256.ComputeHash($utf8))).Replace("-", "").ToLowerInvariant()
+    } finally {
+        $sha256.Dispose()
+    }
+    $actualPathHash = (& python -c "import hashlib,sys; print(hashlib.sha256(sys.argv[1].encode('utf-8')).hexdigest())" $fixtureRoot | Out-String).Trim()
+    if ($LASTEXITCODE -ne 0 -or $actualPathHash -ne $expectedPathHash) {
         throw "A child process did not receive the spaces/Unicode path unchanged."
     }
 
