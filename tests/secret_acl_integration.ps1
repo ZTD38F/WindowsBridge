@@ -4,21 +4,25 @@ $sourceRoot = Split-Path $PSScriptRoot -Parent
 $installerPath = Join-Path $sourceRoot "install.ps1"
 $installer = Get-Content $installerPath -Raw
 
-$protectMarker = 'icacls $Secrets /inheritance:r'
-$grantMarker = 'icacls $Secrets /grant:r "*S-1-5-18:(OI)(CI)F" "*S-1-5-32-544:(OI)(CI)F"'
+$protectMarker = 'Set-RestrictedSecretAcl -Path $Secrets -Container'
 $writeMarker = 'Set-Content -Path $RuntimeKeyFile -Value $RuntimeApiKey -Encoding ASCII -NoNewline'
+$runtimeAclMarker = 'Set-RestrictedSecretAcl -Path $RuntimeKeyFile'
+$routerAclMarker = 'Set-RestrictedSecretAcl -Path $RouterTokenFile'
+$backendAclMarker = 'Set-RestrictedSecretAcl -Path $BackendTokenFile'
 $protectIndex = $installer.IndexOf($protectMarker)
-$grantIndex = $installer.IndexOf($grantMarker)
 $writeIndex = $installer.IndexOf($writeMarker)
+$runtimeAclIndex = $installer.IndexOf($runtimeAclMarker)
 
-if ($protectIndex -lt 0 -or $grantIndex -lt 0 -or $writeIndex -lt 0) {
+if ($protectIndex -lt 0 -or $writeIndex -lt 0 -or $runtimeAclIndex -lt 0) {
     throw "Installer tunnel-secret ACL contract is incomplete."
 }
-if ($protectIndex -gt $grantIndex -or $grantIndex -gt $writeIndex) {
-    throw "Installer must protect the secrets directory before writing the tunnel credential."
+if ($protectIndex -gt $writeIndex -or $writeIndex -gt $runtimeAclIndex) {
+    throw "Installer must protect the secrets directory before writing and then seal the tunnel credential file."
 }
-if ($installer.Contains('icacls $Secrets /inheritance:e')) {
-    throw "Installer must not re-enable inherited access on the secrets directory."
+foreach ($marker in @($routerAclMarker, $backendAclMarker)) {
+    if (-not $installer.Contains($marker)) {
+        throw "Installer does not seal every local secret file: $marker"
+    }
 }
 
 $fixtureRoot = Join-Path ([IO.Path]::GetTempPath()) ("WindowsBridge ACL " + [guid]::NewGuid().ToString("N"))
@@ -27,20 +31,50 @@ $allowedSids = @("S-1-5-18", "S-1-5-32-544")
 
 try {
     New-Item -ItemType Directory -Path $fixtureSecrets -Force | Out-Null
-    & icacls.exe $fixtureSecrets /inheritance:r | Out-Null
-    if ($LASTEXITCODE -ne 0) { throw "Could not disable inherited ACLs on the secret fixture." }
-    & icacls.exe $fixtureSecrets /grant:r "*S-1-5-18:(OI)(CI)F" "*S-1-5-32-544:(OI)(CI)F" | Out-Null
-    if ($LASTEXITCODE -ne 0) { throw "Could not grant the restricted secret fixture ACL." }
+    function Set-TestRestrictedAcl([string]$Path, [switch]$Container) {
+        $systemSid = [Security.Principal.SecurityIdentifier]::new("S-1-5-18")
+        $administratorsSid = [Security.Principal.SecurityIdentifier]::new("S-1-5-32-544")
+        $inheritance = if ($Container) {
+            [Security.AccessControl.InheritanceFlags]::ContainerInherit -bor [Security.AccessControl.InheritanceFlags]::ObjectInherit
+        } else {
+            [Security.AccessControl.InheritanceFlags]::None
+        }
+        $acl = if ($Container) { [Security.AccessControl.DirectorySecurity]::new() } else { [Security.AccessControl.FileSecurity]::new() }
+        $acl.SetAccessRuleProtection($true, $false)
+        $acl.SetOwner($administratorsSid)
+        foreach ($sid in @($systemSid, $administratorsSid)) {
+            $rule = [Security.AccessControl.FileSystemAccessRule]::new(
+                $sid,
+                [Security.AccessControl.FileSystemRights]::FullControl,
+                $inheritance,
+                [Security.AccessControl.PropagationFlags]::None,
+                [Security.AccessControl.AccessControlType]::Allow
+            )
+            [void]$acl.AddAccessRule($rule)
+        }
+        Set-Acl -Path $Path -AclObject $acl
+    }
 
+    Set-TestRestrictedAcl -Path $fixtureSecrets -Container
     $directoryAcl = Get-Acl $fixtureSecrets
     if (-not $directoryAcl.AreAccessRulesProtected) {
         throw "The secret directory still inherits access from its parent."
+    }
+    if ($directoryAcl.Owner -notmatch 'S-1-5-32-544|Administrators') {
+        throw "The secret directory owner is not Builtin Administrators: $($directoryAcl.Owner)"
     }
 
     foreach ($secretName in @("control_plane_api_key", "router_token", "backend_token")) {
         $secretPath = Join-Path $fixtureSecrets $secretName
         Set-Content -Path $secretPath -Value "test-runtime-key-not-a-real-secret" -Encoding ASCII -NoNewline
+        Set-TestRestrictedAcl -Path $secretPath
         $fileAcl = Get-Acl $secretPath
+        if (-not $fileAcl.AreAccessRulesProtected) {
+            throw "Secret file still inherits access: $secretName"
+        }
+        if ($fileAcl.Owner -notmatch 'S-1-5-32-544|Administrators') {
+            throw "Secret file owner is not Builtin Administrators: $secretName ($($fileAcl.Owner))"
+        }
         $rules = @($fileAcl.GetAccessRules($true, $true, [Security.Principal.SecurityIdentifier]))
         if ($rules.Count -eq 0) { throw "Secret file has no access rules: $secretName" }
 
