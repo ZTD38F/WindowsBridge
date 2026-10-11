@@ -58,6 +58,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Updater mutex integration tests failed." }
           powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tests\update_tunnel_continuity_integration.ps1
           if ($LASTEXITCODE -ne 0) { throw "Tunnel continuity integration tests failed." }
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tests\path_unicode_integration.ps1
+          if ($LASTEXITCODE -ne 0) { throw "Spaces/Unicode path integration tests failed." }
       - name: Build immutable release bundle
         shell: pwsh
         run: |

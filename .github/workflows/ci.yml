@@ -58,6 +58,10 @@ jobs:
             throw "Installer preflight did not execute in Windows PowerShell."
           }
 
+      - name: Exercise scripts from a path with spaces and Unicode
+        shell: powershell
+        run: .\tests\path_unicode_integration.ps1
+
       - name: Exercise updater recovery and concurrency contracts
         shell: powershell
         run: |
