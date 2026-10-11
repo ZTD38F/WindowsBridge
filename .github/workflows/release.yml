@@ -60,6 +60,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Tunnel continuity integration tests failed." }
           powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tests\path_unicode_integration.ps1
           if ($LASTEXITCODE -ne 0) { throw "Spaces/Unicode path integration tests failed." }
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tests\secret_acl_integration.ps1
+          if ($LASTEXITCODE -ne 0) { throw "Tunnel secret ACL integration tests failed." }
       - name: Build immutable release bundle
         shell: pwsh
         run: |
