@@ -138,6 +138,38 @@ function Download-VerifiedAsset([object]$Asset, [string]$Destination) {
     }
 }
 
+function Set-RestrictedSecretAcl([string]$Path, [switch]$Container) {
+    $systemSid = [Security.Principal.SecurityIdentifier]::new("S-1-5-18")
+    $administratorsSid = [Security.Principal.SecurityIdentifier]::new("S-1-5-32-544")
+    $inheritance = if ($Container) {
+        [Security.AccessControl.InheritanceFlags]::ContainerInherit -bor
+            [Security.AccessControl.InheritanceFlags]::ObjectInherit
+    } else {
+        [Security.AccessControl.InheritanceFlags]::None
+    }
+
+    $acl = if ($Container) {
+        [Security.AccessControl.DirectorySecurity]::new()
+    } else {
+        [Security.AccessControl.FileSecurity]::new()
+    }
+    $acl.SetAccessRuleProtection($true, $false)
+    $acl.SetOwner($administratorsSid)
+
+    foreach ($sid in @($systemSid, $administratorsSid)) {
+        $rule = [Security.AccessControl.FileSystemAccessRule]::new(
+            $sid,
+            [Security.AccessControl.FileSystemRights]::FullControl,
+            $inheritance,
+            [Security.AccessControl.PropagationFlags]::None,
+            [Security.AccessControl.AccessControlType]::Allow
+        )
+        [void]$acl.AddAccessRule($rule)
+    }
+
+    Set-Acl -Path $Path -AclObject $acl
+}
+
 function Ensure-LocalSecret([string]$Path) {
     if (-not (Test-Path $Path) -or [string]::IsNullOrWhiteSpace((Get-Content $Path -Raw -ErrorAction SilentlyContinue))) {
         $bytes = New-Object byte[] 32
@@ -274,8 +306,7 @@ if ($PreflightOnly) {
 if (-not (Test-Administrator)) { Invoke-Elevated }
 
 New-Item -ItemType Directory -Force -Path $Root,$Bin,$Logs,$Releases,$Runtime,$Cache,$Management,$State,$Secrets | Out-Null
-icacls $Secrets /inheritance:r | Out-Null
-icacls $Secrets /grant:r "*S-1-5-18:(OI)(CI)F" "*S-1-5-32-544:(OI)(CI)F" | Out-Null
+Set-RestrictedSecretAcl -Path $Secrets -Container
 
 $existing = Get-ExistingConfig
 if (-not $TunnelId) { $TunnelId = $env:WINDOWSBRIDGE_TUNNEL_ID }
@@ -388,8 +419,11 @@ try {
 
     Set-Content $Current $ResolvedRef -Encoding ASCII
     Set-Content -Path $RuntimeKeyFile -Value $RuntimeApiKey -Encoding ASCII -NoNewline
+    Set-RestrictedSecretAcl -Path $RuntimeKeyFile
     Ensure-LocalSecret $RouterTokenFile
+    Set-RestrictedSecretAcl -Path $RouterTokenFile
     Ensure-LocalSecret $BackendTokenFile
+    Set-RestrictedSecretAcl -Path $BackendTokenFile
     [ordered]@{ generation = $ResolvedRef; port = 18771 } | ConvertTo-Json -Compress | Set-Content $RouteFile -Encoding ASCII
     Copy-Item (Join-Path $releaseDir "management\supervisor.py") (Join-Path $Management "supervisor.py") -Force
 
