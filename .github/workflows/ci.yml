@@ -62,6 +62,10 @@ jobs:
         shell: powershell
         run: .\tests\tunnel_id_diagnostic_integration.ps1
 
+      - name: Verify signed release asset digest
+        shell: powershell
+        run: .\tests\release_asset_digest_integration.ps1
+
       - name: Verify tunnel secret ACLs on Windows
         shell: powershell
         run: .\tests\secret_acl_integration.ps1
