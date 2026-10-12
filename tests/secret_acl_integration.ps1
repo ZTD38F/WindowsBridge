@@ -31,31 +31,26 @@ $allowedSids = @("S-1-5-18", "S-1-5-32-544")
 
 try {
     New-Item -ItemType Directory -Path $fixtureSecrets -Force | Out-Null
-    function Set-TestRestrictedAcl([string]$Path, [switch]$Container) {
-        $systemSid = [Security.Principal.SecurityIdentifier]::new("S-1-5-18")
-        $administratorsSid = [Security.Principal.SecurityIdentifier]::new("S-1-5-32-544")
-        $inheritance = if ($Container) {
-            [Security.AccessControl.InheritanceFlags]::ContainerInherit -bor [Security.AccessControl.InheritanceFlags]::ObjectInherit
-        } else {
-            [Security.AccessControl.InheritanceFlags]::None
-        }
-        $acl = if ($Container) { [Security.AccessControl.DirectorySecurity]::new() } else { [Security.AccessControl.FileSecurity]::new() }
-        $acl.SetAccessRuleProtection($true, $false)
-        $acl.SetOwner($administratorsSid)
-        foreach ($sid in @($systemSid, $administratorsSid)) {
-            $rule = [Security.AccessControl.FileSystemAccessRule]::new(
-                $sid,
-                [Security.AccessControl.FileSystemRights]::FullControl,
-                $inheritance,
-                [Security.AccessControl.PropagationFlags]::None,
-                [Security.AccessControl.AccessControlType]::Allow
-            )
-            [void]$acl.AddAccessRule($rule)
-        }
-        Set-Acl -Path $Path -AclObject $acl
+    # Execute the production ACL implementation, not a copy of its logic.
+    # This catches regressions even if a marker in install.ps1 is unchanged.
+    $tokens = $null
+    $parseErrors = $null
+    $ast = [System.Management.Automation.Language.Parser]::ParseFile(
+        $installerPath, [ref]$tokens, [ref]$parseErrors)
+    if (@($parseErrors).Count -ne 0) {
+        throw "Production installer PowerShell parser errors: $($parseErrors.Count)"
     }
+    $aclDefinitions = @($ast.FindAll({
+        param($node)
+        $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and
+            $node.Name -eq 'Set-RestrictedSecretAcl'
+    }, $true))
+    if ($aclDefinitions.Count -ne 1) {
+        throw "Expected exactly one production Set-RestrictedSecretAcl definition."
+    }
+    Invoke-Expression $aclDefinitions[0].Extent.Text
 
-    Set-TestRestrictedAcl -Path $fixtureSecrets -Container
+    Set-RestrictedSecretAcl -Path $fixtureSecrets -Container
     $directoryAcl = Get-Acl $fixtureSecrets
     if (-not $directoryAcl.AreAccessRulesProtected) {
         throw "The secret directory still inherits access from its parent."
@@ -64,10 +59,28 @@ try {
         throw "The secret directory owner is not Builtin Administrators: $($directoryAcl.Owner)"
     }
 
+    # Verify directory access rules too: an unprotected directory can expose
+    # the token filenames and newly created secrets before their final ACL.
+    $directoryRules = @($directoryAcl.GetAccessRules(
+        $true, $true, [Security.Principal.SecurityIdentifier]))
+    if ($directoryRules.Count -ne 2) {
+        throw "Unexpected number of explicit secret-directory ACEs: $($directoryRules.Count)"
+    }
+    foreach ($rule in $directoryRules) {
+        if ($rule.IdentityReference.Value -notin $allowedSids -or
+            $rule.AccessControlType -ne [Security.AccessControl.AccessControlType]::Allow) {
+            throw "Secret directory has an unexpected access rule."
+        }
+        if (($rule.FileSystemRights -band [Security.AccessControl.FileSystemRights]::FullControl) -ne
+            [Security.AccessControl.FileSystemRights]::FullControl) {
+            throw "Secret directory ACL rule must grant full control."
+        }
+    }
+
     foreach ($secretName in @("control_plane_api_key", "router_token", "backend_token")) {
         $secretPath = Join-Path $fixtureSecrets $secretName
         Set-Content -Path $secretPath -Value "test-runtime-key-not-a-real-secret" -Encoding ASCII -NoNewline
-        Set-TestRestrictedAcl -Path $secretPath
+        Set-RestrictedSecretAcl -Path $secretPath
         $fileAcl = Get-Acl $secretPath
         if (-not $fileAcl.AreAccessRulesProtected) {
             throw "Secret file still inherits access: $secretName"
