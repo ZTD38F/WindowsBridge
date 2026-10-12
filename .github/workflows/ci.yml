@@ -74,6 +74,10 @@ jobs:
         shell: powershell
         run: .\tests\path_unicode_integration.ps1
 
+      - name: Exercise Windows reboot service recovery
+        shell: powershell
+        run: .\tests\reboot_service_recovery_integration.ps1
+
       - name: Exercise updater recovery and concurrency contracts
         shell: powershell
         run: |
