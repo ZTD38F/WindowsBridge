@@ -58,6 +58,10 @@ jobs:
             throw "Installer preflight did not execute in Windows PowerShell."
           }
 
+      - name: Verify incorrect tunnel ID diagnostic
+        shell: powershell
+        run: .\tests\tunnel_id_diagnostic_integration.ps1
+
       - name: Verify tunnel secret ACLs on Windows
         shell: powershell
         run: .\tests\secret_acl_integration.ps1
