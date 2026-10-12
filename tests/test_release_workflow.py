@@ -22,6 +22,7 @@ class ReleaseWorkflowGateTests(unittest.TestCase):
             r".\tests\update_mutex_integration.ps1",
             r".\tests\update_tunnel_continuity_integration.ps1",
             r".\tests\path_unicode_integration.ps1",
+            r".\tests\secret_acl_integration.ps1",
         )
         for command in required:
             with self.subTest(command=command):
