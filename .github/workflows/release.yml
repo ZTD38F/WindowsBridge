@@ -66,6 +66,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Release asset digest integration tests failed." }
           powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tests\tunnel_id_diagnostic_integration.ps1
           if ($LASTEXITCODE -ne 0) { throw "Tunnel ID diagnostic integration tests failed." }
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tests\reboot_service_recovery_integration.ps1
+          if ($LASTEXITCODE -ne 0) { throw "Windows reboot service recovery integration tests failed." }
       - name: Build immutable release bundle
         shell: pwsh
         run: |
