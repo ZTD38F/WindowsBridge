@@ -16,14 +16,22 @@ foreach ($value in $startupContract) {
     }
 }
 
-$launchMatch = [regex]::Match(
-    $installer,
-    "(?ms)^\s*\$launchContent = @'\r?\n(?<body>.*?)\r?\n'@\s*\r?\n"
-)
-if (-not $launchMatch.Success) {
+$tokens = $null
+$parseErrors = $null
+$ast = [System.Management.Automation.Language.Parser]::ParseFile(
+    $installerPath, [ref]$tokens, [ref]$parseErrors)
+if (@($parseErrors).Count -ne 0) {
+    throw "Production installer PowerShell parser errors: $($parseErrors.Count)"
+}
+$assignments = @($ast.FindAll({
+    param($node)
+    $node -is [System.Management.Automation.Language.AssignmentStatementAst] -and
+        $node.Left.Extent.Text -eq '$launchContent'
+}, $true))
+if ($assignments.Count -ne 1 -or $null -eq $assignments[0].Right.Value) {
     throw "Could not extract the production launch.ps1 body from install.ps1."
 }
-$launchContent = $launchMatch.Groups["body"].Value
+$launchContent = [string]$assignments[0].Right.Value
 
 $fixtureRoot = Join-Path ([IO.Path]::GetTempPath()) (
     "WindowsBridge reboot recovery Ω Ж 漢字 " + [guid]::NewGuid().ToString("N"))
