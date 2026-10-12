@@ -26,12 +26,20 @@ if (@($parseErrors).Count -ne 0) {
 $assignments = @($ast.FindAll({
     param($node)
     $node -is [System.Management.Automation.Language.AssignmentStatementAst] -and
-        $node.Left.Extent.Text -eq '$launchContent'
+        $node.Left -is [System.Management.Automation.Language.VariableExpressionAst] -and
+        $node.Left.VariablePath.UserPath -eq "launchContent"
 }, $true))
-if ($assignments.Count -ne 1 -or $null -eq $assignments[0].Right.Value) {
+if ($assignments.Count -ne 1) {
+    throw "Could not locate the production launch.ps1 assignment in install.ps1."
+}
+$launchStrings = @($assignments[0].Right.FindAll({
+    param($node)
+    $node -is [System.Management.Automation.Language.StringConstantExpressionAst]
+}, $true))
+if ($launchStrings.Count -ne 1) {
     throw "Could not extract the production launch.ps1 body from install.ps1."
 }
-$launchContent = [string]$assignments[0].Right.Value
+$launchContent = [string]$launchStrings[0].Value
 
 $fixtureRoot = Join-Path ([IO.Path]::GetTempPath()) (
     "WindowsBridge reboot recovery Ω Ж 漢字 " + [guid]::NewGuid().ToString("N"))
