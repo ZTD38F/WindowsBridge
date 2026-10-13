@@ -70,6 +70,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Windows reboot service recovery integration tests failed." }
           powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tests\uninstall_data_preservation_integration.ps1
           if ($LASTEXITCODE -ne 0) { throw "Uninstaller data preservation integration tests failed." }
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tests\installer_credential_output_integration.ps1
+          if ($LASTEXITCODE -ne 0) { throw "Installer credential output integration tests failed." }
       - name: Build immutable release bundle
         shell: pwsh
         run: |

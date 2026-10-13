@@ -58,6 +58,10 @@ jobs:
             throw "Installer preflight did not execute in Windows PowerShell."
           }
 
+      - name: Verify installer credential output safety
+        shell: powershell
+        run: .\tests\installer_credential_output_integration.ps1
+
       - name: Verify incorrect tunnel ID diagnostic
         shell: powershell
         run: .\tests\tunnel_id_diagnostic_integration.ps1
