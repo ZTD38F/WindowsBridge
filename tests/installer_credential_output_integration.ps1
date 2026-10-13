@@ -75,6 +75,7 @@ if ($readFunctionText -notmatch 'Read-Host\s+"Paste Runtime API key here \(input
 
 $script:credentialFixture = "runtime-" + [guid]::NewGuid().ToString("N") + "-fixture"
 $script:hostMessages = New-Object System.Collections.Generic.List[string]
+$script:readPrompts = New-Object System.Collections.Generic.List[string]
 $script:officialPageCalls = New-Object System.Collections.Generic.List[string]
 
 function Open-SetupPage {
@@ -89,6 +90,7 @@ function Read-Host {
         [string]$Prompt,
         [switch]$AsSecureString
     )
+    $script:readPrompts.Add($Prompt)
     if (-not $AsSecureString) {
         throw "Credential prompt did not request SecureString input."
     }
@@ -119,7 +121,7 @@ $hostTranscript = $hostMessages -join [Environment]::NewLine
 if ($hostTranscript.Contains($credentialFixture)) {
     throw "Credential value was printed to the interactive host."
 }
-if (-not $hostTranscript.Contains("input is hidden")) {
+if ($readPrompts.Count -ne 1 -or -not $readPrompts[0].Contains("input is hidden")) {
     throw "Installer did not tell the user that credential input is hidden."
 }
 if (-not $hostTranscript.Contains("Runtime API key received")) {
