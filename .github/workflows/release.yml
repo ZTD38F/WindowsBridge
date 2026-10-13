@@ -68,6 +68,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Tunnel ID diagnostic integration tests failed." }
           powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tests\reboot_service_recovery_integration.ps1
           if ($LASTEXITCODE -ne 0) { throw "Windows reboot service recovery integration tests failed." }
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tests\uninstall_data_preservation_integration.ps1
+          if ($LASTEXITCODE -ne 0) { throw "Uninstaller data preservation integration tests failed." }
       - name: Build immutable release bundle
         shell: pwsh
         run: |
