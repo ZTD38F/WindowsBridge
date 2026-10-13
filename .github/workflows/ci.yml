@@ -58,6 +58,18 @@ jobs:
             throw "Installer preflight did not execute in Windows PowerShell."
           }
 
+      - name: Verify installer credential output safety
+        shell: powershell
+        run: .\tests\installer_credential_output_integration.ps1
+
+      - name: Verify incorrect tunnel ID diagnostic
+        shell: powershell
+        run: .\tests\tunnel_id_diagnostic_integration.ps1
+
+      - name: Verify signed release asset digest
+        shell: powershell
+        run: .\tests\release_asset_digest_integration.ps1
+
       - name: Verify tunnel secret ACLs on Windows
         shell: powershell
         run: .\tests\secret_acl_integration.ps1
@@ -65,6 +77,14 @@ jobs:
       - name: Exercise scripts from a path with spaces and Unicode
         shell: powershell
         run: .\tests\path_unicode_integration.ps1
+
+      - name: Exercise Windows reboot service recovery
+        shell: powershell
+        run: .\tests\reboot_service_recovery_integration.ps1
+
+      - name: Exercise uninstaller data preservation
+        shell: powershell
+        run: .\tests\uninstall_data_preservation_integration.ps1
 
       - name: Exercise updater recovery and concurrency contracts
         shell: powershell
