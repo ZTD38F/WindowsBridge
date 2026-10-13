@@ -61,7 +61,7 @@ $ast.FindAll({
     $functions[$_.Name] = $_
 }
 
-foreach ($requiredFunction in @("Convert-SecureToPlainText","Read-RuntimeApiKey")) {
+foreach ($requiredFunction in @("ConvertFrom-Secure","Read-RuntimeApiKey")) {
     if (-not $functions.ContainsKey($requiredFunction)) {
         throw "Installer function is missing: $requiredFunction"
     }
@@ -77,7 +77,7 @@ $script:credentialFixture = "runtime-" + [guid]::NewGuid().ToString("N") + "-fix
 $script:hostMessages = New-Object System.Collections.Generic.List[string]
 $script:officialPageCalls = New-Object System.Collections.Generic.List[string]
 
-function Open-OfficialPage {
+function Open-SetupPage {
     param([string]$Url)
     $script:officialPageCalls.Add($Url)
 }
