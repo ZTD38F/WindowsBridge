@@ -78,6 +78,10 @@ jobs:
         shell: powershell
         run: .\tests\reboot_service_recovery_integration.ps1
 
+      - name: Exercise uninstaller data preservation
+        shell: powershell
+        run: .\tests\uninstall_data_preservation_integration.ps1
+
       - name: Exercise updater recovery and concurrency contracts
         shell: powershell
         run: |
