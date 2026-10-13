@@ -26,6 +26,7 @@ class ReleaseWorkflowGateTests(unittest.TestCase):
             r".\tests\tunnel_id_diagnostic_integration.ps1",
             r".\tests\release_asset_digest_integration.ps1",
             r".\tests\reboot_service_recovery_integration.ps1",
+            r".\tests\uninstall_data_preservation_integration.ps1",
         )
         for command in required:
             with self.subTest(command=command):
