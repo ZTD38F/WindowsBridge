@@ -205,6 +205,12 @@ function Open-SetupPage([string]$Url) {
     }
 }
 
+function Assert-ValidTunnelId([string]$Value) {
+    if ($Value -notmatch '^tunnel_[0-9a-f]{32}$') {
+        throw "Invalid OpenAI tunnel ID. Expected tunnel_ followed by 32 lowercase hexadecimal characters."
+    }
+}
+
 function Read-TunnelId {
     $url = "https://platform.openai.com/settings/organization/tunnels"
 
@@ -323,7 +329,7 @@ if ($AutoUpdate -and -not $existing) {
 if (-not $TunnelId) { $TunnelId = Read-TunnelId }
 if (-not $RuntimeApiKey) { $RuntimeApiKey = Read-RuntimeApiKey }
 
-if ($TunnelId -notmatch '^tunnel_[0-9a-f]{32}$') { throw "Invalid OpenAI tunnel ID." }
+Assert-ValidTunnelId $TunnelId
 if ([string]::IsNullOrWhiteSpace($RuntimeApiKey)) { throw "Runtime API key is required." }
 
 $NeedsConnectorSetup = (-not $AutoUpdate) -and ((-not $existing) -or ($PreviousTunnelId -ne $TunnelId))

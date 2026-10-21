@@ -62,6 +62,16 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Spaces/Unicode path integration tests failed." }
           powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tests\secret_acl_integration.ps1
           if ($LASTEXITCODE -ne 0) { throw "Tunnel secret ACL integration tests failed." }
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tests\release_asset_digest_integration.ps1
+          if ($LASTEXITCODE -ne 0) { throw "Release asset digest integration tests failed." }
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tests\tunnel_id_diagnostic_integration.ps1
+          if ($LASTEXITCODE -ne 0) { throw "Tunnel ID diagnostic integration tests failed." }
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tests\reboot_service_recovery_integration.ps1
+          if ($LASTEXITCODE -ne 0) { throw "Windows reboot service recovery integration tests failed." }
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tests\uninstall_data_preservation_integration.ps1
+          if ($LASTEXITCODE -ne 0) { throw "Uninstaller data preservation integration tests failed." }
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tests\installer_credential_output_integration.ps1
+          if ($LASTEXITCODE -ne 0) { throw "Installer credential output integration tests failed." }
       - name: Build immutable release bundle
         shell: pwsh
         run: |
