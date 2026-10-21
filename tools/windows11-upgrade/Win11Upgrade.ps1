@@ -1,4 +1,4 @@
-#requires -Version 5.1
+﻿#requires -Version 5.1
 <#
 .SYNOPSIS
     Windows 11 Upgrade Manager - safe, interactive Windows feature updates.
