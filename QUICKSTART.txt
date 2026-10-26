@@ -4,10 +4,12 @@ VERIFIED CLOUDFLARE PAGES INSTALLER WEBSITE
 -------------------------------------------
 https://windowsbridge.pages.dev/
 
-1. Open the website and select Copy command.
-2. Press Win + R.
-3. Press Ctrl + V.
-4. Press Enter. Review the source and any UAC prompt before approving changes.
+On the website, select Copy command. Then follow exactly three Windows actions:
+1. Win + R
+2. Ctrl + V
+3. Enter
+
+Review the source and any UAC prompt before approving changes.
 
 The readable one-command launcher downloads a local PowerShell file from the Cloudflare Pages /install.ps1 URL, redirecting to pinned public source. Cloudflare API, HTTP and source readback are verified (2026-10-26); first-install Windows device E2E remains unverified.
 
