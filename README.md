@@ -4,7 +4,7 @@ WindowsBridge gives ChatGPT controlled access to an authorized Windows computer 
 
 ## Installer download — pending verified Pages shortcut
 
-A CyberVoid-style, readable Win+R → Ctrl+V → Enter launcher is being prepared through Cloudflare Pages. The short domain is **not deployed/verified**; meanwhile use the official installer file below, review it and run the saved local script using your organization's permitted PowerShell procedure.
+The [Cloudflare Pages installer site](https://windowsbridge.pages.dev/) is now published and API/HTTP verified (26 October 2026). Its copy button provides one **readable** command for **Win+R → Ctrl+V → Enter**. The `/install.ps1` link redirects to a source file pinned at Git commit `47dca7c44d25aa9b26faf763b36d6c786d3ae6da`. Review the script before running; fresh-machine Windows installation is still **unverified**.
 
 [Download the stable installer](https://raw.githubusercontent.com/ZTD38F/WindowsBridge/stable/install.ps1)
 
@@ -135,9 +135,9 @@ Key controls include:
 - one active local tunnel runtime enforced by mutex;
 - CI PowerShell parsing, Python compilation, secret guards, onboarding-contract checks, tool-annotation checks, and Windows artifact builds.
 
-## Planned short installer address
+## Verified Pages installer address
 
-The desired Cloudflare Pages URL is `windowsbridge.pages.dev`, following the CyberVoid user experience. **This is a proposed name, not an active or verified service.** Do not use the URL until account ownership, deployment, pinned source and HTTP behavior have been verified. The long-term Windows launch format is Win+R → Ctrl+V → Enter with a short readable command and visible console; no encoded commands.
+[WindowsBridge installation page](https://windowsbridge.pages.dev/) is live in the authorized Cloudflare account. Deployment ownership, homepage, static assets, security headers, and the pinned `/install.ps1` redirect passed HTTP readback. The site exposes a plain PowerShell command for **Win+R → Ctrl+V → Enter**, never an encoded payload. **An actual device installation is not yet E2E-verified.**
 
 ## Update channels
 
