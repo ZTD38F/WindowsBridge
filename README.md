@@ -2,7 +2,7 @@
 
 WindowsBridge gives ChatGPT controlled access to an authorized Windows computer through the official OpenAI Secure MCP Tunnel.
 
-## Installer download — pending verified Pages shortcut
+## Installer download — verified Pages launcher
 
 The [Cloudflare Pages installer site](https://windowsbridge.pages.dev/) is now published and API/HTTP verified (26 October 2026). Its copy button provides one **readable** command for **Win+R → Ctrl+V → Enter**. The `/install.ps1` link redirects to a source file pinned at Git commit `47dca7c44d25aa9b26faf763b36d6c786d3ae6da`. Review the script before running; fresh-machine Windows installation is still **unverified**.
 
