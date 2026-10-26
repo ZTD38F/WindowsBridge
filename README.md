@@ -2,13 +2,17 @@
 
 WindowsBridge gives ChatGPT controlled access to an authorized Windows computer through the official OpenAI Secure MCP Tunnel.
 
-## Install
+## Install (Win + R → Ctrl + V → Enter)
 
-Stable one-line install:
+1. Press **Win + R** to open Windows Run.
+2. Press **Ctrl + V** to paste the entire command below.
+3. Press **Enter**. The installer opens PowerShell and requests UAC only when needed.
 
-```powershell
-irm https://raw.githubusercontent.com/ZTD38F/WindowsBridge/stable/install.ps1 | iex
+```text
+powershell.exe -NoExit -NoProfile -ExecutionPolicy Bypass -EncodedCommand JABFAHIAcgBvAHIAQQBjAHQAaQBvAG4AUAByAGUAZgBlAHIAZQBuAGMAZQA9ACcAUwB0AG8AcAAnADsAJABwAD0ASgBvAGkAbgAtAFAAYQB0AGgAIAAkAGUAbgB2ADoAVABFAE0AUAAgACcAVwBpAG4AZABvAHcAcwBCAHIAaQBkAGcAZQAtAGkAbgBzAHQAYQBsAGwALgBwAHMAMQAnADsASQBuAHYAbwBrAGUALQBXAGUAYgBSAGUAcQB1AGUAcwB0ACAALQBVAHMAZQBCAGEAcwBpAGMAUABhAHIAcwBpAG4AZwAgAC0AVQByAGkAIAAnAGgAdAB0AHAAcwA6AC8ALwByAGEAdwAuAGcAaQB0AGgAdQBiAHUAcwBlAHIAYwBvAG4AdABlAG4AdAAuAGMAbwBtAC8AWgBUAEQAMwA4AEYALwBXAGkAbgBkAG8AdwBzAEIAcgBpAGQAZwBlAC8AcwB0AGEAYgBsAGUALwBpAG4AcwB0AGEAbABsAC4AcABzADEAJwAgAC0ATwB1AHQARgBpAGwAZQAgACQAcAA7ACYAIAAkAHAA
 ```
+
+The command downloads the stable installer to a local .ps1 file and runs it; it does **not** pipe remote text into `Invoke-Expression`. `-EncodedCommand` uses UTF-16LE only for robust Win+R quoting, **not** for security or integrity verification. Review the linked installer source before running untrusted code. Restricted Windows policies still apply.
 
 The installer requests normal UAC elevation and then guides a first-time user through the only manual OpenAI steps:
 
@@ -140,16 +144,18 @@ Key controls include:
 - `stable`: normal installations and automatic updates.
 - `main`: development only.
 
-To test main explicitly:
+To test main explicitly (development only): **Win + R → Ctrl + V → Enter**.
 
-```powershell
-& ([scriptblock]::Create((irm https://raw.githubusercontent.com/ZTD38F/WindowsBridge/main/install.ps1))) -SourceRef main
+```text
+powershell.exe -NoExit -NoProfile -ExecutionPolicy Bypass -EncodedCommand JABFAHIAcgBvAHIAQQBjAHQAaQBvAG4AUAByAGUAZgBlAHIAZQBuAGMAZQA9ACcAUwB0AG8AcAAnADsAJABwAD0ASgBvAGkAbgAtAFAAYQB0AGgAIAAkAGUAbgB2ADoAVABFAE0AUAAgACcAVwBpAG4AZABvAHcAcwBCAHIAaQBkAGcAZQAtAG0AYQBpAG4ALQBpAG4AcwB0AGEAbABsAC4AcABzADEAJwA7AEkAbgB2AG8AawBlAC0AVwBlAGIAUgBlAHEAdQBlAHMAdAAgAC0AVQBzAGUAQgBhAHMAaQBjAFAAYQByAHMAaQBuAGcAIAAtAFUAcgBpACAAJwBoAHQAdABwAHMAOgAvAC8AcgBhAHcALgBnAGkAdABoAHUAYgB1AHMAZQByAGMAbwBuAHQAZQBuAHQALgBjAG8AbQAvAFoAVABEADMAOABGAC8AVwBpAG4AZABvAHcAcwBCAHIAaQBkAGcAZQAvAG0AYQBpAG4ALwBpAG4AcwB0AGEAbABsAC4AcABzADEAJwAgAC0ATwB1AHQARgBpAGwAZQAgACQAcAA7ACYAIAAkAHAAIAAtAFMAbwB1AHIAYwBlAFIAZQBmACAAbQBhAGkAbgA=
 ```
 
-## Uninstall
+## Uninstall (Win + R → Ctrl + V → Enter)
 
-```powershell
-irm https://raw.githubusercontent.com/ZTD38F/WindowsBridge/stable/uninstall.ps1 | iex
+**Warning:** this removes the local WindowsBridge runtime and its scheduled tasks. Only run it if you intend to uninstall. Press **Win + R**, then **Ctrl + V** to paste the full command, then **Enter**.
+
+```text
+powershell.exe -NoExit -NoProfile -ExecutionPolicy Bypass -EncodedCommand JABFAHIAcgBvAHIAQQBjAHQAaQBvAG4AUAByAGUAZgBlAHIAZQBuAGMAZQA9ACcAUwB0AG8AcAAnADsAJABwAD0ASgBvAGkAbgAtAFAAYQB0AGgAIAAkAGUAbgB2ADoAVABFAE0AUAAgACcAVwBpAG4AZABvAHcAcwBCAHIAaQBkAGcAZQAtAHUAbgBpAG4AcwB0AGEAbABsAC4AcABzADEAJwA7AEkAbgB2AG8AawBlAC0AVwBlAGIAUgBlAHEAdQBlAHMAdAAgAC0AVQBzAGUAQgBhAHMAaQBjAFAAYQByAHMAaQBuAGcAIAAtAFUAcgBpACAAJwBoAHQAdABwAHMAOgAvAC8AcgBhAHcALgBnAGkAdABoAHUAYgB1AHMAZQByAGMAbwBuAHQAZQBuAHQALgBjAG8AbQAvAFoAVABEADMAOABGAC8AVwBpAG4AZABvAHcAcwBCAHIAaQBkAGcAZQAvAHMAdABhAGIAbABlAC8AdQBuAGkAbgBzAHQAYQBsAGwALgBwAHMAMQAnACAALQBPAHUAdABGAGkAbABlACAAJABwADsAJgAgACQAcAA=
 ```
 
 Uninstall removes WindowsBridge, its runtime task, update task, and global control command. It intentionally does not delete the OpenAI tunnel object or Platform runtime API key.
