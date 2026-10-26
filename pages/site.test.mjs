@@ -54,6 +54,9 @@ test('immutable source and page metadata agree', () => {
   assert.ok(html.includes(manifest.sha) && html.includes(installer));
   assert.ok(html.includes('/' + manifest.filename));
   assert.ok(!html.includes(' -EncodedCommand '));
+  assert.ok(html.includes(' -ExecutionPolicy Bypass -Command '));
+  assert.ok(html.includes('$ErrorActionPreference=&#x27;Stop&#x27;'));
+  assert.ok(html.includes(`-SourceRef &#x27;${manifest.sha}&#x27;`));
   assert.ok(!client.includes(' -EncodedCommand '));
   assert.ok(redirects.includes(installer));
 });
