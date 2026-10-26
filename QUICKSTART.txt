@@ -1,12 +1,18 @@
 WindowsBridge 0.3.0 RC
 
-INSTALLER FILE (PAGES SHORTCUT NOT YET VERIFIED)
------------------
-View/download the file below, inspect its contents, then run the saved local script using your permitted Windows PowerShell procedure.
+VERIFIED CLOUDFLARE PAGES INSTALLER WEBSITE
+-------------------------------------------
+https://windowsbridge.pages.dev/
 
-https://raw.githubusercontent.com/ZTD38F/WindowsBridge/stable/install.ps1
+1. Open the website and select Copy command.
+2. Press Win + R.
+3. Press Ctrl + V.
+4. Press Enter. Review the source and any UAC prompt before approving changes.
 
-This URL is the source file, not an automatic installer command. A short, readable Win+R / Ctrl+V / Enter launcher will replace it after verified Pages deployment. Review the trusted source before running.
+The readable one-command launcher downloads a local PowerShell file from the Cloudflare Pages /install.ps1 URL, redirecting to pinned public source. Cloudflare API, HTTP and source readback are verified (2026-10-26); first-install Windows device E2E remains unverified.
+
+Pinned source file (read/review before running):
+https://raw.githubusercontent.com/ZTD38F/WindowsBridge/47dca7c44d25aa9b26faf763b36d6c786d3ae6da/install.ps1
 
 FIRST INSTALL
 -------------
