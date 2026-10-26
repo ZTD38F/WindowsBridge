@@ -2,17 +2,13 @@
 
 WindowsBridge gives ChatGPT controlled access to an authorized Windows computer through the official OpenAI Secure MCP Tunnel.
 
-## Install (Win + R → Ctrl + V → Enter)
+## Installer download — pending verified Pages shortcut
 
-1. Press **Win + R** to open Windows Run.
-2. Press **Ctrl + V** to paste the entire command below.
-3. Press **Enter**. The installer opens PowerShell and requests UAC only when needed.
+The [Cloudflare Pages installer site](https://windowsbridge.pages.dev/) is now published and API/HTTP verified (26 October 2026). Its copy button provides one **readable** command for **Win+R → Ctrl+V → Enter**. The `/install.ps1` link redirects to a source file pinned at Git commit `47dca7c44d25aa9b26faf763b36d6c786d3ae6da`. Review the script before running; fresh-machine Windows installation is still **unverified**.
 
-```text
-powershell.exe -NoExit -NoProfile -ExecutionPolicy Bypass -EncodedCommand JABFAHIAcgBvAHIAQQBjAHQAaQBvAG4AUAByAGUAZgBlAHIAZQBuAGMAZQA9ACcAUwB0AG8AcAAnADsAJABwAD0ASgBvAGkAbgAtAFAAYQB0AGgAIAAkAGUAbgB2ADoAVABFAE0AUAAgACcAVwBpAG4AZABvAHcAcwBCAHIAaQBkAGcAZQAtAGkAbgBzAHQAYQBsAGwALgBwAHMAMQAnADsASQBuAHYAbwBrAGUALQBXAGUAYgBSAGUAcQB1AGUAcwB0ACAALQBVAHMAZQBCAGEAcwBpAGMAUABhAHIAcwBpAG4AZwAgAC0AVQByAGkAIAAnAGgAdAB0AHAAcwA6AC8ALwByAGEAdwAuAGcAaQB0AGgAdQBiAHUAcwBlAHIAYwBvAG4AdABlAG4AdAAuAGMAbwBtAC8AWgBUAEQAMwA4AEYALwBXAGkAbgBkAG8AdwBzAEIAcgBpAGQAZwBlAC8AcwB0AGEAYgBsAGUALwBpAG4AcwB0AGEAbABsAC4AcABzADEAJwAgAC0ATwB1AHQARgBpAGwAZQAgACQAcAA7ACYAIAAkAHAA
-```
+[Download the stable installer](https://raw.githubusercontent.com/ZTD38F/WindowsBridge/stable/install.ps1)
 
-The command downloads the stable installer to a local .ps1 file and runs it; it does **not** pipe remote text into `Invoke-Expression`. `-EncodedCommand` uses UTF-16LE only for robust Win+R quoting, **not** for security or integrity verification. Review the linked installer source before running untrusted code. Restricted Windows policies still apply.
+The installer file is public and auditable. This interim source link intentionally avoids hidden or encoded launch commands. It is not an automatic install.
 
 The installer requests normal UAC elevation and then guides a first-time user through the only manual OpenAI steps:
 
@@ -139,24 +135,24 @@ Key controls include:
 - one active local tunnel runtime enforced by mutex;
 - CI PowerShell parsing, Python compilation, secret guards, onboarding-contract checks, tool-annotation checks, and Windows artifact builds.
 
+## Verified Pages installer address
+
+[WindowsBridge installation page](https://windowsbridge.pages.dev/) is live in the authorized Cloudflare account. Deployment ownership, homepage, static assets, security headers, and the pinned `/install.ps1` redirect passed HTTP readback. The site exposes a plain PowerShell command for **Win+R → Ctrl+V → Enter**, never an encoded payload. **An actual device installation is not yet E2E-verified.**
+
 ## Update channels
 
 - `stable`: normal installations and automatic updates.
 - `main`: development only.
 
-To test main explicitly (development only): **Win + R → Ctrl + V → Enter**.
+Development source (not for routine installation):
 
-```text
-powershell.exe -NoExit -NoProfile -ExecutionPolicy Bypass -EncodedCommand JABFAHIAcgBvAHIAQQBjAHQAaQBvAG4AUAByAGUAZgBlAHIAZQBuAGMAZQA9ACcAUwB0AG8AcAAnADsAJABwAD0ASgBvAGkAbgAtAFAAYQB0AGgAIAAkAGUAbgB2ADoAVABFAE0AUAAgACcAVwBpAG4AZABvAHcAcwBCAHIAaQBkAGcAZQAtAG0AYQBpAG4ALQBpAG4AcwB0AGEAbABsAC4AcABzADEAJwA7AEkAbgB2AG8AawBlAC0AVwBlAGIAUgBlAHEAdQBlAHMAdAAgAC0AVQBzAGUAQgBhAHMAaQBjAFAAYQByAHMAaQBuAGcAIAAtAFUAcgBpACAAJwBoAHQAdABwAHMAOgAvAC8AcgBhAHcALgBnAGkAdABoAHUAYgB1AHMAZQByAGMAbwBuAHQAZQBuAHQALgBjAG8AbQAvAFoAVABEADMAOABGAC8AVwBpAG4AZABvAHcAcwBCAHIAaQBkAGcAZQAvAG0AYQBpAG4ALwBpAG4AcwB0AGEAbABsAC4AcABzADEAJwAgAC0ATwB1AHQARgBpAGwAZQAgACQAcAA7ACYAIAAkAHAAIAAtAFMAbwB1AHIAYwBlAFIAZQBmACAAbQBhAGkAbgA=
-```
+[Development installer source](https://raw.githubusercontent.com/ZTD38F/WindowsBridge/main/install.ps1)
 
-## Uninstall (Win + R → Ctrl + V → Enter)
+## Uninstall — source file (manual)
 
-**Warning:** this removes the local WindowsBridge runtime and its scheduled tasks. Only run it if you intend to uninstall. Press **Win + R**, then **Ctrl + V** to paste the full command, then **Enter**.
+**Warning:** running this local file removes the WindowsBridge runtime and scheduled tasks. Review it before executing.
 
-```text
-powershell.exe -NoExit -NoProfile -ExecutionPolicy Bypass -EncodedCommand JABFAHIAcgBvAHIAQQBjAHQAaQBvAG4AUAByAGUAZgBlAHIAZQBuAGMAZQA9ACcAUwB0AG8AcAAnADsAJABwAD0ASgBvAGkAbgAtAFAAYQB0AGgAIAAkAGUAbgB2ADoAVABFAE0AUAAgACcAVwBpAG4AZABvAHcAcwBCAHIAaQBkAGcAZQAtAHUAbgBpAG4AcwB0AGEAbABsAC4AcABzADEAJwA7AEkAbgB2AG8AawBlAC0AVwBlAGIAUgBlAHEAdQBlAHMAdAAgAC0AVQBzAGUAQgBhAHMAaQBjAFAAYQByAHMAaQBuAGcAIAAtAFUAcgBpACAAJwBoAHQAdABwAHMAOgAvAC8AcgBhAHcALgBnAGkAdABoAHUAYgB1AHMAZQByAGMAbwBuAHQAZQBuAHQALgBjAG8AbQAvAFoAVABEADMAOABGAC8AVwBpAG4AZABvAHcAcwBCAHIAaQBkAGcAZQAvAHMAdABhAGIAbABlAC8AdQBuAGkAbgBzAHQAYQBsAGwALgBwAHMAMQAnACAALQBPAHUAdABGAGkAbABlACAAJABwADsAJgAgACQAcAA=
-```
+[Uninstaller source — removes local runtime](https://raw.githubusercontent.com/ZTD38F/WindowsBridge/stable/uninstall.ps1)
 
 Uninstall removes WindowsBridge, its runtime task, update task, and global control command. It intentionally does not delete the OpenAI tunnel object or Platform runtime API key.
 

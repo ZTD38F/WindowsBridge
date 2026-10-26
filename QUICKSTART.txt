@@ -1,14 +1,20 @@
 WindowsBridge 0.3.0 RC
 
-INSTALL (3 STEPS)
------------------
+VERIFIED CLOUDFLARE PAGES INSTALLER WEBSITE
+-------------------------------------------
+https://windowsbridge.pages.dev/
+
+On the website, select Copy command. Then follow exactly three Windows actions:
 1. Win + R
-2. Ctrl + V (paste the entire command below)
+2. Ctrl + V
 3. Enter
 
-powershell.exe -NoExit -NoProfile -ExecutionPolicy Bypass -EncodedCommand JABFAHIAcgBvAHIAQQBjAHQAaQBvAG4AUAByAGUAZgBlAHIAZQBuAGMAZQA9ACcAUwB0AG8AcAAnADsAJABwAD0ASgBvAGkAbgAtAFAAYQB0AGgAIAAkAGUAbgB2ADoAVABFAE0AUAAgACcAVwBpAG4AZABvAHcAcwBCAHIAaQBkAGcAZQAtAGkAbgBzAHQAYQBsAGwALgBwAHMAMQAnADsASQBuAHYAbwBrAGUALQBXAGUAYgBSAGUAcQB1AGUAcwB0ACAALQBVAHMAZQBCAGEAcwBpAGMAUABhAHIAcwBpAG4AZwAgAC0AVQByAGkAIAAnAGgAdAB0AHAAcwA6AC8ALwByAGEAdwAuAGcAaQB0AGgAdQBiAHUAcwBlAHIAYwBvAG4AdABlAG4AdAAuAGMAbwBtAC8AWgBUAEQAMwA4AEYALwBXAGkAbgBkAG8AdwBzAEIAcgBpAGQAZwBlAC8AcwB0AGEAYgBsAGUALwBpAG4AcwB0AGEAbABsAC4AcABzADEAJwAgAC0ATwB1AHQARgBpAGwAZQAgACQAcAA7ACYAIAAkAHAA
+Review the source and any UAC prompt before approving changes.
 
-Downloads install.ps1 to a local file and runs it. UTF-16LE encoding is only for command-line quoting. Review the trusted source before running.
+The readable one-command launcher downloads a local PowerShell file from the Cloudflare Pages /install.ps1 URL, redirecting to pinned public source. Cloudflare API, HTTP and source readback are verified (2026-10-26); first-install Windows device E2E remains unverified.
+
+Pinned source file (read/review before running):
+https://raw.githubusercontent.com/ZTD38F/WindowsBridge/47dca7c44d25aa9b26faf763b36d6c786d3ae6da/install.ps1
 
 FIRST INSTALL
 -------------
@@ -48,8 +54,6 @@ windowsbridgectl auto-update-disable
 
 UNINSTALL (REMOVES LOCAL BRIDGE AND TASKS)
 ------------------------------------------
-1. Win + R
-2. Ctrl + V (paste the full command below)
-3. Enter
+Review the official uninstaller file before running it locally.
 
-powershell.exe -NoExit -NoProfile -ExecutionPolicy Bypass -EncodedCommand JABFAHIAcgBvAHIAQQBjAHQAaQBvAG4AUAByAGUAZgBlAHIAZQBuAGMAZQA9ACcAUwB0AG8AcAAnADsAJABwAD0ASgBvAGkAbgAtAFAAYQB0AGgAIAAkAGUAbgB2ADoAVABFAE0AUAAgACcAVwBpAG4AZABvAHcAcwBCAHIAaQBkAGcAZQAtAHUAbgBpAG4AcwB0AGEAbABsAC4AcABzADEAJwA7AEkAbgB2AG8AawBlAC0AVwBlAGIAUgBlAHEAdQBlAHMAdAAgAC0AVQBzAGUAQgBhAHMAaQBjAFAAYQByAHMAaQBuAGcAIAAtAFUAcgBpACAAJwBoAHQAdABwAHMAOgAvAC8AcgBhAHcALgBnAGkAdABoAHUAYgB1AHMAZQByAGMAbwBuAHQAZQBuAHQALgBjAG8AbQAvAFoAVABEADMAOABGAC8AVwBpAG4AZABvAHcAcwBCAHIAaQBkAGcAZQAvAHMAdABhAGIAbABlAC8AdQBuAGkAbgBzAHQAYQBsAGwALgBwAHMAMQAnACAALQBPAHUAdABGAGkAbABlACAAJABwADsAJgAgACQAcAA=
+https://raw.githubusercontent.com/ZTD38F/WindowsBridge/stable/uninstall.ps1
