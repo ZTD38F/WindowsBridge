@@ -6,9 +6,7 @@ WindowsBridge gives ChatGPT controlled access to an authorized Windows computer 
 
 A CyberVoid-style, readable Win+R → Ctrl+V → Enter launcher is being prepared through Cloudflare Pages. The short domain is **not deployed/verified**; meanwhile use the official installer file below, review it and run the saved local script using your organization's permitted PowerShell procedure.
 
-```text
 [Download the stable installer](https://raw.githubusercontent.com/ZTD38F/WindowsBridge/stable/install.ps1)
-```
 
 The installer file is public and auditable. This interim source link intentionally avoids hidden or encoded launch commands. It is not an automatic install.
 
@@ -148,17 +146,13 @@ The desired Cloudflare Pages URL is `windowsbridge.pages.dev`, following the Cyb
 
 Development source (not for routine installation):
 
-```text
 [Development installer source](https://raw.githubusercontent.com/ZTD38F/WindowsBridge/main/install.ps1)
-```
 
 ## Uninstall — source file (manual)
 
 **Warning:** running this local file removes the WindowsBridge runtime and scheduled tasks. Review it before executing.
 
-```text
 [Uninstaller source — removes local runtime](https://raw.githubusercontent.com/ZTD38F/WindowsBridge/stable/uninstall.ps1)
-```
 
 Uninstall removes WindowsBridge, its runtime task, update task, and global control command. It intentionally does not delete the OpenAI tunnel object or Platform runtime API key.
 
