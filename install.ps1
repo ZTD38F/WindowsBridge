@@ -3,7 +3,6 @@ param(
     [string]$TunnelId,
     [string]$RuntimeApiKey,
     [string]$SourceRef = "stable",
-    
     [switch]$AutoUpdate,
     [switch]$DisableAutoUpdate,
     [switch]$PreflightOnly
