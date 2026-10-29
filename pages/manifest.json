@@ -4,9 +4,13 @@
   "host": "windowsbridge.pages.dev",
   "mode": 2,
   "filename": "install.ps1",
-  "install_url": "https://raw.githubusercontent.com/ZTD38F/WindowsBridge/be3b7dc179c6410e787c0925fccfdc0ca7f35dc9/install.ps1",
-  "sha": "be3b7dc179c6410e787c0925fccfdc0ca7f35dc9",
-  "sha256": "17adb84585c0310f4f8b372cb0ea117619d0b6ddb671e4551ced244d0a5c3c14",
+  "install_url": "https://raw.githubusercontent.com/ZTD38F/WindowsBridge/main/install.ps1",
   "github": "https://github.com/ZTD38F/WindowsBridge",
-  "platform": "windows"
+  "platform": "windows",
+  "source_ref": "main",
+  "dynamic": true,
+  "freshness_strategy": "github-atom-sha",
+  "generator_repo": "ZTD38F/Cloudflare-Pages-Router",
+  "generator_commit": "749c164b1255d89cab25214189218a8ae5f19394",
+  "required_pages_binding": "REDIRECT_URL"
 }
