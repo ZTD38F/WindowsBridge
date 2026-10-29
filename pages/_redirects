@@ -1,1 +1,1 @@
-/install.ps1  https://raw.githubusercontent.com/ZTD38F/WindowsBridge/47dca7c44d25aa9b26faf763b36d6c786d3ae6da/install.ps1  302
+# Mode 2: no HTTP redirects. The advanced _worker.js proxies the raw script.

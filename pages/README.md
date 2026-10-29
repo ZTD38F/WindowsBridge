@@ -1,12 +1,16 @@
-# WindowsBridge Cloudflare Pages source
+# WindowsBridge Cloudflare Pages — Mode 2 (Proxy S / Text Plain)
 
-This folder is the **GitHub source of truth** for the `https://windowsbridge.pages.dev/` Pages deployment.
+This directory is the **GitHub source of truth** for https://windowsbridge.pages.dev/.
 
-- Browser homepage: static `index.html`, `app.js`, `style.css` with CSP and nosniff.
-- CLI root (`curl`, `wget`, PowerShell, Termux): HTTP 302 to immutable installer.
-- `/install.ps1`: HTTP 302 to `https://raw.githubusercontent.com/ZTD38F/WindowsBridge/47dca7c44d25aa9b26faf763b36d6c786d3ae6da/install.ps1`.
-- `.ASSETS.fetch` handles all other paths. No encoded PowerShell commands.
-- Always keep the installer SHA pinned to a tested Git revision. Review updates and use the existing Sonoryx governance/lease + E2E process, not an independent periodic worker.
-- A published HTTPS page does **not** prove installation was tested on a real device.
+- Both `/` and `/install.ps1` return the raw pinned PowerShell installer as HTTP 200, `Content-Type: text/plain; charset=utf-8`.
+- Every user agent (browser, Windows PowerShell, curl) gets **identical bytes**. The Pages hostname stays in place: no HTTP redirect and no Secure Install HTML interface.
+- Immutable upstream: `https://raw.githubusercontent.com/ZTD38F/WindowsBridge/be3b7dc179c6410e787c0925fccfdc0ca7f35dc9/install.ps1`.
+- SHA-256 of the pinned installer: `17adb84585c0310f4f8b372cb0ea117619d0b6ddb671e4551ced244d0a5c3c14`.
+- The `_worker.js` checks upstream status and MIME, rejects oversize and empty responses, disables caching and supplies CSP/nosniff. Unsupported methods return 405; upstream errors return 502.
+- `index.html` is only a minimal static safety fallback; normal traffic is always handled by `_worker.js`. Old HTML UI, JS, CSS and `_redirects` are **not deployed**.
+- Instructions for Win+R → Ctrl+V → Enter belong to the separate CyberVoid project, not to this raw-script endpoint.
+- An HTTP deployment does not prove the install script was run successfully on a Windows machine.
 
-For deployment, build an allowlisted output directory from these files: `_worker.js`, `_headers`, `_redirects`, `index.html`, `app.js`, `style.css`. The `manifest.json` is metadata and must be checked against the website/source hash. Never upload token files.
+Test: `node --test pages/site.test.mjs`.
+Build: `bash pages/build-site.sh /tmp/windowsbridge-mode2-build`.
+Deploy the build output to the existing Cloudflare Pages project `windowsbridge` on production branch `main`, then compare browser and PowerShell HTTP responses and SHA-256 with `install.ps1`.
