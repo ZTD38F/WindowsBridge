@@ -3,8 +3,7 @@ name: CI
 on:
   push:
     branches: [main, stable]
-  pull_request:
-    branches: [main, stable]
+  pull_request: # Run checks on stacked preview PRs as well as main/stable PRs
 
 permissions:
   contents: read
