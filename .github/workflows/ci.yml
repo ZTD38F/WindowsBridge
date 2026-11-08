@@ -104,7 +104,10 @@ jobs:
           $required = @(
             "https://platform.openai.com/settings/organization/tunnels",
             "https://platform.openai.com/settings/organization/api-keys",
-            "https://chatgpt.com/#settings/Connectors",
+            "https://chatgpt.com/plugins",
+            "Add custom MCP server",
+            "READ-ONLY WindowsBridge system-information tool",
+            "Only that successful call verifies the end-to-end connection.",
             "WindowsBridge Runtime",
             "Tunnels -> Read",
             "Tunnels -> Use",
