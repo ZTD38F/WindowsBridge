@@ -83,11 +83,11 @@ if ($prompts.Count -ne 4 -or
 if ($inputs.Count -ne 0) { throw "Unexpected unconsumed fixture input." }
 $transcript = $messages -join [Environment]::NewLine
 foreach ($label in @(
-    "WindowsBridge  |  1/3  |  Tunnel",
-    "WindowsBridge  |  2/3  |  API key",
-    "WindowsBridge  |  3/3  |  ChatGPT",
+    "WindowsBridge  [1/3]  Tunnel",
+    "WindowsBridge  [2/3]  API key",
+    "WindowsBridge  [3/3]  ChatGPT",
     "create one named WindowsBridge",
-    "Restricted key named WindowsBridge",
+    "Reuse a Restricted key, or create one named WindowsBridge",
     "Name: WindowsBridge  |  Connection: Tunnel",
     "No authentication (NoAuth)",
     "Review permissions -> Create as a plugin -> Install.",
