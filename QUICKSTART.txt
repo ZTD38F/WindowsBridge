@@ -7,7 +7,8 @@ https://raw.githubusercontent.com/ZTD38F/WindowsBridge/stable/install.ps1
 
 1. Tunnel: create or reuse "WindowsBridge". Choose the correct
    Platform organization and ChatGPT workspace, then paste its tunnel_... ID.
-2. Key: create "WindowsBridge" as Restricted (Tunnels Read + Use).
+2. Key: reuse a suitable Restricted key, or create "WindowsBridge"
+   with Tunnels Read + Use.
    Paste only in the hidden PowerShell prompt.
 3. ChatGPT Plugins: + -> Add custom MCP server -> WindowsBridge.
    Connection: Tunnel; select yours. Authentication: NoAuth.
