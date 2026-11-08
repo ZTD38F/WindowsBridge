@@ -44,7 +44,6 @@ function fixture({commit='a'.repeat(40),bytes=script,log=[]}={}){
 for(const [path,agent] of [
   ['/','Mozilla/5.0 Chrome/141'],['/','WindowsPowerShell/5.1'],
   ['/','Termux/0.118'],['/','curl/8.7'],[`/${filename}`,'Mozilla/5.0'],
-  ['/index.html','Mozilla/5.0'],
 ]){
   test(`Mode 2 ${path} ${agent}: fresh exact script, same Pages host`,async()=>{
     const calls=[];
@@ -105,11 +104,111 @@ test('manifest declares mutable GitHub main, no hard-coded revision binding',()=
   assert.ok(deployed.includes('resolveGithubAtom'));
 });
 
-test('builder deploys Worker and safe fallback, not legacy HTML or redirects',()=>{
+test('builder includes browser UX assets without legacy redirects',()=>{
   const build=readFileSync(join(base,'build-site.sh'),'utf8');
   assert.ok(build.includes('_worker.js'));
   assert.ok(!build.includes(' _redirects '));
   const fallback=readFileSync(join(base,'index.html'),'utf8');
-  assert.ok(!fallback.includes('Copy command'));
-  assert.ok(!fallback.includes('Secure Install'));
+  assert.ok(fallback.includes('Скопировать команду'));
+  assert.ok(fallback.includes('stable/install.ps1'));
+  assert.ok(build.includes('style.css app.js'));
+  assert.ok(!fallback.includes('<script>'));
+  assert.ok(!fallback.includes('<style>'));
+});
+
+const siteFiles = {
+  '/index.html': {body:readFileSync(join(base,'index.html')),type:'text/html'},
+  '/style.css': {body:readFileSync(join(base,'style.css')),type:'text/css'},
+  '/app.js': {body:readFileSync(join(base,'app.js')),type:'application/javascript'},
+};
+function siteEnv(){
+  return {...env, ASSETS:{fetch:async request=>{
+    const pathname=new URL(request.url).pathname;
+    const data=siteFiles[pathname];
+    if(!data)return new Response('Missing asset',{status:404});
+    return new Response(request.method==='HEAD'?null:data.body,{
+      status:200,headers:{'Content-Type':data.type}});
+  }}};
+}
+const browserReq=(path='/',method='GET')=>new Request(
+  `https://${manifest.host}${path}`,{
+    method,headers:{'User-Agent':'Mozilla/5.0','Accept':'text/html,application/xhtml+xml'}
+  });
+
+for(const pathname of ['/','/setup','/setup/','/index.html']){
+  test(`Browser ${pathname} serves attractive setup HTML without GitHub request`,async()=>{
+    const res=await withFetch(()=>{throw Error('Browser UI must not fetch upstream');},
+      ()=>worker.fetch(browserReq(pathname),siteEnv()));
+    assert.equal(res.status,200);
+    assert.equal(res.headers.get('content-type'),'text/html; charset=utf-8');
+    assert.equal(res.headers.get('cache-control'),'no-store');
+    assert.match(res.headers.get('content-security-policy'),/script-src 'self'/);
+    assert.match(res.headers.get('x-frame-options'),/DENY/i);
+    const body=await res.text();
+    assert.match(body,/<h1[^>]*id="hero-title"/);
+    assert.match(body,/<title>WindowsBridge/);
+    assert.match(body,/Скопировать команду/);
+    assert.match(body,/Win \+ R/);
+  });
+}
+for(const pathname of ['/style.css','/app.js']){
+  test(`Static ${pathname} delivers packaged asset without GitHub request`,async()=>{
+    const res=await withFetch(()=>{throw Error('Assets must not fetch GitHub');},
+      ()=>worker.fetch(req(pathname,'curl/8.7'),siteEnv()));
+    assert.equal(res.status,200);
+    assert.match(res.headers.get('content-type'),pathname.endsWith('.css')?/text\/css/:/javascript/);
+    assert.ok((await res.text()).length>500);
+  });
+}
+test('HEAD / and /setup are bodyless HTML for browsers',async()=>{
+  for(const path of ['/','/setup']){
+    const res=await withFetch(()=>{throw Error('HEAD page must not fetch GitHub');},
+      ()=>worker.fetch(browserReq(path,'HEAD'),siteEnv()));
+    assert.equal(res.status,200);
+    assert.match(res.headers.get('content-type'),/text\/html/);
+    assert.equal(await res.text(),'');
+  }
+});
+test('HTML request to /install.ps1 ALWAYS returns raw script, never UI',async()=>{
+  const res=await withFetch(fixture(),()=>worker.fetch(browserReq('/install.ps1'),siteEnv()));
+  assert.equal(res.headers.get('content-type'),'text/plain; charset=utf-8');
+  assert.deepEqual(Buffer.from(await res.arrayBuffer()),script);
+});
+test('non-browser root request preserves Mode 2 exact script',async()=>{
+  const res=await withFetch(fixture(),()=>worker.fetch(req('/','curl/8.7'),siteEnv()));
+  assert.equal(res.headers.get('content-type'),'text/plain; charset=utf-8');
+  assert.deepEqual(Buffer.from(await res.arrayBuffer()),script);
+});
+test('Missing ASSETS binding fails browser UI closed, not into PowerShell',async()=>{
+  const res=await withFetch(()=>{throw Error('No GitHub fallback for UI');},
+    ()=>worker.fetch(browserReq('/'),env));
+  assert.equal(res.status,503);
+  assert.equal(res.headers.get('cache-control'),'no-store');
+  assert.ok(!(await res.text()).includes('powershell.exe'));
+});
+test('POST /setup rejects rather than serving static or script',async()=>{
+  const res=await withFetch(()=>{throw Error('No fetch allowed for POST');},
+    ()=>worker.fetch(browserReq('/setup','POST'),siteEnv()));
+  assert.equal(res.status,405);
+  assert.equal(res.headers.get('allow'),'GET, HEAD');
+});
+test('Landing has safe one-command stable launcher, official links and no key collection',()=>{
+  const html=siteFiles['/index.html'].body.toString();
+  const css=siteFiles['/style.css'].body.toString();
+  const app=siteFiles['/app.js'].body.toString();
+  assert.match(html,/id="install-command"/);
+  assert.match(html,/stable\/install\.ps1/);
+  assert.match(html,/Win \+ R/);
+  assert.equal((html.match(/data-copy-command/g)||[]).length,2);
+  for(const link of ['https://platform.openai.com/settings/organization/tunnels',
+    'https://platform.openai.com/settings/organization/api-keys',
+    'https://chatgpt.com/plugins']){
+    assert.ok(html.includes(link),`Official setup link missing: ${link}`);
+  }
+  assert.ok(!/<input[^>]*type=["']?(password|text)/i.test(html));
+  assert.match(app,/navigator\.clipboard/);
+  assert.match(app,/execCommand/);
+  assert.match(css,/@media\(max-width:650px\)/);
+  assert.match(css,/prefers-reduced-motion/);
+  assert.ok(!/<script>|<style>/i.test(html));
 });
