@@ -71,6 +71,9 @@ jobs:
       - name: Verify entire onboarding UI without network or real secrets
         shell: powershell
         run: .\tests\onboarding_flow_integration.ps1
+      - name: Validate copied Win+R launcher on Windows PowerShell 5.1
+        shell: powershell
+        run: .\tests\launcher_contract_integration.ps1
 
       - name: Verify signed release asset digest
         shell: powershell
