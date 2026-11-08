@@ -81,7 +81,7 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: windowsbridge-native-wpf-preview
-          path: .ci-artifacts/wpf-step*.png
+          path: ci-artifacts/wpf-step*.png
           retention-days: 7
           if-no-files-found: error
       - name: Validate copied Win+R launcher on Windows PowerShell 5.1

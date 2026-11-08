@@ -15,7 +15,7 @@ foreach ($name in @("New-GraphicalSetupWindow","Set-GraphicalSetupStage")) {
     Invoke-Expression $nodes[0].Extent.Text
 }
 Add-Type -AssemblyName PresentationFramework,PresentationCore,WindowsBase -ErrorAction Stop
-$out = Join-Path $repo ".ci-artifacts"
+$out = Join-Path $repo "ci-artifacts"
 New-Item -ItemType Directory -Force -Path $out | Out-Null
 $window = New-GraphicalSetupWindow
 try {
