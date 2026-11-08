@@ -14,7 +14,7 @@
 
 1. Build in a new empty directory. Assert that it contains only `_worker.js`, `index.html`, `style.css`, `app.js`.
 2. Execute Node route-contract tests and automated Chrome desktop/mobile screenshots. Confirm no overflow, accessible focus, clipboard stable command, proper dark styling, and no external network requests by the landing page.
-3. Deploy **to an isolated preview target only** after explicit authorization; do not overwrite the production project. Confirm Pages `env.ASSETS` binding works in advanced Worker mode.
+3. Deploy **to an isolated preview target only** after explicit authorization; do not overwrite the production project. Set preview `REDIRECT_URL=https://raw.githubusercontent.com/ZTD38F/WindowsBridge/stable/install.ps1` (production's current `main` binding must NOT be reused). Confirm Pages `env.ASSETS` binding works in advanced Worker mode.
 4. Check browser Accept `text/html` GET / → 200 HTML, assets → 200, HEAD empty, POST → 405, CSP and no-store.
 5. Check PowerShell/curl GET / and GET /install.ps1 → exact source bytes from the intended GitHub commit via fresh Atom SHA, unchanged headers and no redirect. The user-facing copied launcher must use **stable**, not main.
 6. Verify native PowerShell onboarding / restricted key handling / tunnel startup / actual ChatGPT read-only MCP call on an authorized Windows test machine. Keep credentials out of logs and screenshots.
