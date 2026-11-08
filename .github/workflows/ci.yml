@@ -69,6 +69,9 @@ jobs:
       - name: Verify guided tunnel enrollment
         shell: powershell
         run: .\tests\tunnel_enrollment_integration.ps1
+      - name: Verify entire onboarding UI without network or real secrets
+        shell: powershell
+        run: .\tests\onboarding_flow_integration.ps1
 
       - name: Verify signed release asset digest
         shell: powershell
@@ -97,6 +100,20 @@ jobs:
           .\\tests\\update_mutex_integration.ps1
           .\\tests\\update_tunnel_continuity_integration.ps1
 
+      - name: Validate minimal naming and truthful installation docs
+        shell: pwsh
+        run: |
+          $readme = Get-Content README.md -Raw
+          $quick = Get-Content QUICKSTART.txt -Raw
+          foreach ($doc in @($readme, $quick)) {
+            if ($doc -match '(?i)select copy command|its copy button|WindowsBridge Runtime -|WindowsBridge - <COMPUTERNAME>') {
+              throw 'Stale onboarding text or machine-specific resource name.'
+            }
+          }
+          if (-not $readme.Contains('plain-text PowerShell source endpoint') -or
+              -not $quick.Contains('Elevated installation defaults to')) {
+            throw 'Source-channel vs stable-install behavior was not documented.'
+          }
       - name: Validate first-run onboarding contract
         shell: pwsh
         run: |
@@ -112,8 +129,8 @@ jobs:
             "WindowsBridge  |  1/3  |  Tunnel",
             "WindowsBridge  |  2/3  |  API key",
             "WindowsBridge  |  3/3  |  ChatGPT",
-            "Tunnels -> Read",
-            "Tunnels -> Use",
+            "Tunnels -> Read + Use",
+            "Create as a plugin",
             "No authentication (NoAuth)"
           )
           foreach ($value in $required) {
