@@ -206,7 +206,7 @@ function Open-SetupPage([string]$Url) {
 }
 
 function Assert-ValidTunnelId([string]$Value) {
-    if ($Value -notmatch '^tunnel_[0-9a-f]{32}$') {
+    if ($Value -cnotmatch '^tunnel_[0-9a-f]{32}$') {
         throw "Invalid OpenAI tunnel ID. Expected tunnel_ followed by 32 lowercase hexadecimal characters."
     }
 }
@@ -219,22 +219,21 @@ function Read-TunnelId {
     Write-Host " WindowsBridge  |  1/3  |  Tunnel" -ForegroundColor Cyan
     Write-Host "============================================================" -ForegroundColor DarkCyan
     Write-Host ""
-    Write-Host "  1. Reuse your tunnel, or create one named WindowsBridge." -ForegroundColor White
-    Write-Host "  2. Select the right Platform organization and ChatGPT workspace." -ForegroundColor Gray
-    Write-Host "  3. Copy its tunnel_... ID and paste it below." -ForegroundColor Gray
-    Write-Host "  (Never paste an API key here.)" -ForegroundColor DarkGray
+    Write-Host "  Reuse your tunnel, or create one named WindowsBridge." -ForegroundColor White
+    Write-Host "  Confirm Platform organization and ChatGPT workspace." -ForegroundColor Gray
+    Write-Host "  Paste its tunnel_... ID below (not the API key)." -ForegroundColor Gray
     Write-Host ""
     Open-SetupPage $url
     Write-Host ""
 
     while ($true) {
         $value = (Read-Host "Tunnel ID").Trim()
-        if ($value -match '^tunnel_[0-9a-f]{32}$') {
+        if ($value -cmatch '^tunnel_[0-9a-f]{32}$') {
             Write-Host "OK - Tunnel ID accepted." -ForegroundColor Green
             return $value
         }
-        Write-Host "Invalid tunnel ID. Expected: tunnel_ followed by 32 lowercase hexadecimal characters." -ForegroundColor Red
-        Write-Host "If tunnel creation is denied (403): Platform role needs Tunnels: Read + Manage." -ForegroundColor DarkGray
+        Write-Host "Invalid ID: expected tunnel_ + 32 lowercase hex characters." -ForegroundColor Red
+        Write-Host "If creating a tunnel returns 403, request Tunnels: Read + Manage." -ForegroundColor DarkGray
     }
 }
 
@@ -246,9 +245,8 @@ function Read-RuntimeApiKey {
     Write-Host " WindowsBridge  |  2/3  |  API key" -ForegroundColor Cyan
     Write-Host "============================================================" -ForegroundColor DarkCyan
     Write-Host ""
-    Write-Host "  1. In the same Platform organization, create a Restricted key." -ForegroundColor White
-    Write-Host "  2. Name: WindowsBridge" -ForegroundColor Yellow
-    Write-Host "  3. Only: Tunnels -> Read and Tunnels -> Use." -ForegroundColor Gray
+    Write-Host "  Create a Restricted key named WindowsBridge." -ForegroundColor White
+    Write-Host "  Same organization; only Tunnels -> Read + Use." -ForegroundColor Gray
     Write-Host "  Do not use an Admin API key." -ForegroundColor DarkGray
     Write-Host ""
     Open-SetupPage $url
@@ -273,12 +271,11 @@ function Show-ConnectorSetup([string]$ResolvedTunnelId) {
     Write-Host " WindowsBridge  |  3/3  |  ChatGPT" -ForegroundColor Cyan
     Write-Host "============================================================" -ForegroundColor DarkCyan
     Write-Host ""
-    Write-Host "  1. ChatGPT Plugins -> + -> Add custom MCP server." -ForegroundColor White
-    Write-Host "  2. Name: WindowsBridge" -ForegroundColor Yellow
-    Write-Host "  3. Connection: Tunnel" -ForegroundColor Gray
-    Write-Host "     Select your tunnel or use ID: $ResolvedTunnelId" -ForegroundColor Yellow
-    Write-Host "  4. Authentication: No authentication (NoAuth)" -ForegroundColor Gray
-    Write-Host "  5. Install the plugin." -ForegroundColor Gray
+    Write-Host "  Plugins -> + -> Add custom MCP server." -ForegroundColor White
+    Write-Host "  Name: WindowsBridge  |  Connection: Tunnel" -ForegroundColor Yellow
+    Write-Host "  Tunnel: select yours or paste $ResolvedTunnelId" -ForegroundColor Gray
+    Write-Host "  Authentication: No authentication (NoAuth)" -ForegroundColor Gray
+    Write-Host "  Review permissions -> Create as a plugin -> Install." -ForegroundColor White
     Write-Host ""
     Open-SetupPage $url
     Write-Host ""
