@@ -1,1 +1,88 @@
-<!doctype html><html lang="en"><meta charset="utf-8"><title>WindowsBridge Mode 2 Worker required</title><p>Worker unavailable. No installer served from static HTML.</p></html>
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0a101b">
+  <meta name="description" content="WindowsBridge — безопасное подключение Windows к ChatGPT. Одна команда, три понятных шага.">
+  <title>WindowsBridge — Windows и ChatGPT</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Перейти к содержанию</a>
+  <div class="background-glow" aria-hidden="true"></div>
+  <header class="site-header shell">
+    <a class="brand" href="/" aria-label="WindowsBridge — главная">
+      <span class="brand-symbol" aria-hidden="true"><svg width="23" height="23" viewBox="0 0 24 24" fill="none"><path d="M3.5 7.5 11 3l9.5 5.5v9L13 22l-9.5-5.5v-9Z" stroke="currentColor" stroke-width="1.5"/><path d="m8 9 4 3-4 3m6 0h3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      <span>WindowsBridge</span>
+    </a>
+    <div class="header-meta"><span class="status-dot" aria-hidden="true"></span><span>Windows · Secure MCP</span></div>
+  </header>
+
+  <main id="main" class="shell">
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="hero-copy">
+        <p class="eyebrow"><span class="eyebrow-line" aria-hidden="true"></span> ПОДКЛЮЧЕНИЕ БЕЗ ЛИШНЕГО</p>
+        <h1 id="hero-title">Windows и ChatGPT.<br><span>Одна связь.</span></h1>
+        <p class="intro">Управляй своим Windows-компьютером через ChatGPT — по защищённому исходящему соединению, без открытых входящих портов.</p>
+        <div class="hero-actions">
+          <button class="button button-primary" type="button" data-copy-command><svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.7"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" stroke="currentColor" stroke-width="1.7"/></svg><span class="copy-label">Скопировать команду</span></button>
+          <a class="button button-quiet" href="#steps">Как подключить <span aria-hidden="true">↗</span></a>
+        </div>
+        <p class="keyboard-hint">Win + R <span>→</span> Ctrl + V <span>→</span> Enter</p>
+      </div>
+
+      <section class="terminal-card" aria-label="Команда установки">
+        <div class="terminal-header"><span class="terminal-dots" aria-hidden="true"><i></i><i></i><i></i></span><span>Установка</span><span class="terminal-type">PowerShell</span></div>
+        <div class="terminal-content">
+          <div class="command-label"><span class="prompt-symbol" aria-hidden="true">›</span> Запуск WindowsBridge</div>
+          <code id="install-command" class="install-command">powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "$f=Join-Path $env:TEMP 'WindowsBridge-install.ps1'; Invoke-WebRequest -UseBasicParsing 'https://raw.githubusercontent.com/ZTD38F/WindowsBridge/stable/install.ps1' -OutFile $f; &amp; $f"</code>
+          <div class="terminal-footer">
+            <span><span class="small-dot" aria-hidden="true"></span> Источник: <strong>stable</strong></span>
+            <button class="terminal-copy" type="button" data-copy-command>Копировать <span aria-hidden="true">↗</span></button>
+          </div>
+        </div>
+      </section>
+    </section>
+
+    <section class="steps-section" id="steps" aria-labelledby="steps-title">
+      <div class="section-heading">
+        <div><p class="eyebrow">ТРИ ПРОСТЫХ ШАГА</p><h2 id="steps-title">Подключение без сложностей</h2></div>
+        <p>Установщик сам откроет нужные страницы.</p>
+      </div>
+      <div class="steps-grid">
+        <article class="step-card">
+          <div class="step-number">01 <span class="step-line"></span> ТУННЕЛЬ</div>
+          <h3>WindowsBridge</h3>
+          <p>Создай туннель или выбери существующий. Вставь его ID в установщик.</p>
+          <a href="https://platform.openai.com/settings/organization/tunnels" target="_blank" rel="noopener noreferrer">Открыть Tunnels <span aria-hidden="true">↗</span></a>
+        </article>
+        <article class="step-card">
+          <div class="step-number">02 <span class="step-line"></span> ДОСТУП</div>
+          <h3>Защищённый ключ</h3>
+          <p>Используй Restricted API key с правами Tunnels Read + Use. Ввод останется скрытым.</p>
+          <a href="https://platform.openai.com/settings/organization/api-keys" target="_blank" rel="noopener noreferrer">Открыть API Keys <span aria-hidden="true">↗</span></a>
+        </article>
+        <article class="step-card">
+          <div class="step-number">03 <span class="step-line"></span> CHATGPT</div>
+          <h3>Готово к работе</h3>
+          <p>Добавь WindowsBridge как custom MCP plugin через Tunnel и проверь первый вызов.</p>
+          <a href="https://chatgpt.com/plugins" target="_blank" rel="noopener noreferrer">Открыть Plugins <span aria-hidden="true">↗</span></a>
+        </article>
+      </div>
+    </section>
+
+    <aside class="trust-strip" aria-label="О безопасности">
+      <span class="trust-icon" aria-hidden="true">✳</span>
+      <p><strong>Только твоё устройство.</strong> Туннель работает через исходящий HTTPS. Ключ не вводится на этом сайте и не попадает в буфер вместе с командой. WindowsBridge имеет права администратора — подключай его только в доверенном пространстве.</p>
+    </aside>
+  </main>
+
+  <footer class="site-footer shell">
+    <span>© WindowsBridge <span class="footer-separator" aria-hidden="true">·</span> Минимум действий, максимум контроля</span>
+    <a href="https://github.com/ZTD38F/WindowsBridge/blob/stable/install.ps1" target="_blank" rel="noopener noreferrer">Посмотреть исходный код <span aria-hidden="true">↗</span></a>
+  </footer>
+  <div id="copy-status" class="toast" role="status" aria-live="polite" aria-atomic="true" hidden></div>
+</body>
+</html>
