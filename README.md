@@ -2,37 +2,19 @@
 
 WindowsBridge gives ChatGPT controlled access to an authorized Windows computer through the official OpenAI Secure MCP Tunnel.
 
-## Installer download — pending verified Pages shortcut
+## Get started
 
-The [Cloudflare Pages installer site](https://windowsbridge.pages.dev/) is now published and API/HTTP verified (26 October 2026). Its copy button provides one **readable** command for **Win+R → Ctrl+V → Enter**. The `/install.ps1` link redirects to a source file pinned at Git commit `47dca7c44d25aa9b26faf763b36d6c786d3ae6da`. Review the script before running; fresh-machine Windows installation is still **unverified**.
+[Stable installer source](https://raw.githubusercontent.com/ZTD38F/WindowsBridge/stable/install.ps1) — review before running. The first install needs UAC consent and three setup stages:
 
-[Download the stable installer](https://raw.githubusercontent.com/ZTD38F/WindowsBridge/stable/install.ps1)
+1. **Tunnel:** reuse an existing tunnel or create **WindowsBridge** in [OpenAI Tunnels](https://platform.openai.com/settings/organization/tunnels). Select the correct Platform organization and ChatGPT workspace. Paste its `tunnel_...` ID into the installer.
+2. **Key:** create a Restricted API key named **WindowsBridge** with **Tunnels Read + Use** in the same organization. Paste it only into the hidden installer prompt.
+3. **ChatGPT:** in [Plugins](https://chatgpt.com/plugins), choose **+ → Add custom MCP server**, name it **WindowsBridge**, select **Tunnel**, select your tunnel, set MCP-server authentication to **No authentication (NoAuth)**, review the risk warning, create the plugin, and install it.
 
-The installer file is public and auditable. This interim source link intentionally avoids hidden or encoded launch commands. It is not an automatic install.
+**Verify:** use a read-only WindowsBridge system-information tool from ChatGPT. Local `/readyz` alone does not prove end-to-end access.
 
-The installer requests normal UAC elevation and then guides a first-time user through the only manual OpenAI steps:
+**Security:** the tunnel runtime is authenticated by the restricted key even though the MCP server uses NoAuth. WindowsBridge has SYSTEM-level administrative tools; install it only in a trusted workspace and approve sensitive operations deliberately.
 
-Before UAC elevation, the bootstrap resolves the selected GitHub channel to an immutable commit SHA and re-downloads the elevated installer from that exact commit.
-
-1. **Tunnel**
-   - opens `https://platform.openai.com/settings/organization/tunnels`
-   - reuse an existing tunnel or create one named `WindowsBridge`
-   - select the intended Platform organization and ChatGPT workspace
-   - paste the `tunnel_...` ID into PowerShell (not an API key)
-   - creation permissions: **Tunnels Read + Manage**; runtime: **Tunnels Read + Use**
-2. **Runtime API key**
-   - opens `https://platform.openai.com/settings/organization/api-keys`
-   - name: `WindowsBridge`; **Restricted** with only **Tunnels → Read + Use**
-   - paste it into the hidden PowerShell prompt
-3. **ChatGPT plugin**
-   - after the local tunnel is ready, opens `https://chatgpt.com/plugins`
-   - choose **+ → Add custom MCP server**
-   - Name: `WindowsBridge`
-   - Connection: `Tunnel`; select the same tunnel or paste its ID
-   - MCP-server authentication: `No authentication` (NoAuth)
-   - install the plugin and execute a **read-only system-information tool** to verify end-to-end access
-
-NoAuth is the MCP-server authentication mode, not permission to access the tunnel without credentials. The Secure MCP Tunnel remains authenticated by the restricted runtime API key. **Local `/readyz` success alone does not verify the ChatGPT-to-Windows end-to-end path.** WindowsBridge tools include administrative capabilities running as SYSTEM; install the plugin only in a trusted ChatGPT workspace and approve sensitive actions deliberately.
+**Distribution note:** [windowsbridge.pages.dev](https://windowsbridge.pages.dev/) is configured in the repository as a *plain-text PowerShell source endpoint* tracking `main`, **not** an installer website with a Copy button. The installer uses `stable` by default when it elevates, so reviewing newer code from `main` does not install that code automatically. No live-device first-install E2E or current external Pages deployment was verified in this PR.
 
 ## What installation does automatically
 
@@ -138,11 +120,9 @@ Key controls include:
 - one active local tunnel runtime enforced by mutex;
 - CI PowerShell parsing, Python compilation, secret guards, onboarding-contract checks, tool-annotation checks, and Windows artifact builds.
 
-## Verified Pages installer address
+## Source and release channels
 
-[WindowsBridge installation page](https://windowsbridge.pages.dev/) is live in the authorized Cloudflare account. Deployment ownership, homepage, static assets, security headers, and the pinned `/install.ps1` redirect passed HTTP readback. The site exposes a plain PowerShell command for **Win+R → Ctrl+V → Enter**, never an encoded payload. **An actual device installation is not yet E2E-verified.**
-
-## Update channels
+The Pages Worker repository configuration serves PowerShell source rather than an HTML installation wizard. Its route aims to avoid stale cached GitHub source; routing has CI tests, but the live Cloudflare deployment was not independently probed here. Use the reviewed stable installer for ordinary installs.
 
 - `stable`: normal installations and automatic updates.
 - `main`: development only.
