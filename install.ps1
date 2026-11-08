@@ -197,12 +197,25 @@ function Get-ExistingConfig {
 
 
 function Open-SetupPage([string]$Url) {
+    Write-Host "  OPEN IN BROWSER" -ForegroundColor DarkCyan
     Write-Host "  $Url" -ForegroundColor Cyan
     try {
         Start-Process $Url -ErrorAction Stop | Out-Null
     } catch {
-        Write-Host "  Open the link above in your browser." -ForegroundColor DarkGray
+        Write-Host "  Browser did not open automatically. Use the link above." -ForegroundColor Yellow
     }
+}
+
+function Write-SetupHeading([int]$Step, [string]$Title, [string]$Subtitle) {
+    if ($Step -lt 1 -or $Step -gt 3) { throw "Invalid WindowsBridge setup step." }
+    $track = ('#' * $Step) + ('-' * (3 - $Step))
+    Write-Host ""
+    Write-Host "  WindowsBridge  /  SECURE SETUP" -ForegroundColor Cyan
+    Write-Host ("  [{0}]  STEP {1}/3" -f $track, $Step) -ForegroundColor DarkCyan
+    Write-Host "  ----------------------------------------------" -ForegroundColor DarkGray
+    Write-Host ("  WindowsBridge  [{0}/3]  {1}" -f $Step, $Title) -ForegroundColor White
+    Write-Host ("  {0}" -f $Subtitle) -ForegroundColor Gray
+    Write-Host ""
 }
 
 function Assert-ValidTunnelId([string]$Value) {
@@ -214,13 +227,13 @@ function Assert-ValidTunnelId([string]$Value) {
 function Read-TunnelId {
     $url = "https://platform.openai.com/settings/organization/tunnels"
 
-    Write-Host ""
-    Write-Host "WindowsBridge  [1/3]  Tunnel" -ForegroundColor Cyan
-    Write-Host "----------------------------------------" -ForegroundColor DarkGray
-    Write-Host ""
-    Write-Host "  Reuse your tunnel, or create one named WindowsBridge." -ForegroundColor White
-    Write-Host "  Confirm Platform organization and ChatGPT workspace." -ForegroundColor Gray
-    Write-Host "  Paste its tunnel_... ID below (not the API key)." -ForegroundColor Gray
+    Write-SetupHeading 1 "Tunnel" "Connect your PC to the right OpenAI workspace."
+    Write-Host "  YOUR ACTION" -ForegroundColor Yellow
+    Write-Host "  1  Reuse your tunnel, or create one named WindowsBridge." -ForegroundColor White
+    Write-Host "  2  Confirm the Platform organization and ChatGPT workspace." -ForegroundColor Gray
+    Write-Host "  3  Copy the Tunnel ID, not an API key." -ForegroundColor Gray
+    Write-Host "     Format: tunnel_ followed by 32 lowercase hex characters." -ForegroundColor DarkGray
+    Write-Host "     Cannot create it (403)? Request Tunnels: Read + Manage." -ForegroundColor DarkGray
     Write-Host ""
     Open-SetupPage $url
     Write-Host ""
@@ -228,24 +241,23 @@ function Read-TunnelId {
     while ($true) {
         $value = (Read-Host "Tunnel ID").Trim()
         if ($value -cmatch '^tunnel_[0-9a-f]{32}$') {
-            Write-Host "OK - Tunnel ID accepted." -ForegroundColor Green
+            Write-Host "  [OK] Tunnel ID validated locally." -ForegroundColor Green
             return $value
         }
-        Write-Host "Invalid ID: expected tunnel_ + 32 lowercase hex characters." -ForegroundColor Red
-        Write-Host "If creating a tunnel returns 403, request Tunnels: Read + Manage." -ForegroundColor DarkGray
+        Write-Host "  [!] Invalid ID. Expected tunnel_ + 32 lowercase hex characters." -ForegroundColor Red
+        Write-Host "      Copy the tunnel ID from Platform; do not paste a key." -ForegroundColor Yellow
     }
 }
 
 function Read-RuntimeApiKey {
     $url = "https://platform.openai.com/settings/organization/api-keys"
 
-    Write-Host ""
-    Write-Host "WindowsBridge  [2/3]  API key" -ForegroundColor Cyan
-    Write-Host "----------------------------------------" -ForegroundColor DarkGray
-    Write-Host ""
-    Write-Host "  Reuse a Restricted key, or create one named WindowsBridge." -ForegroundColor White
-    Write-Host "  Same organization; only Tunnels -> Read + Use." -ForegroundColor Gray
-    Write-Host "  Do not use an Admin API key." -ForegroundColor DarkGray
+    Write-SetupHeading 2 "API key" "Grant the tunnel only the permissions it needs."
+    Write-Host "  YOUR ACTION" -ForegroundColor Yellow
+    Write-Host "  1  Reuse a Restricted key, or create one named WindowsBridge." -ForegroundColor White
+    Write-Host "  2  Same organization; only Tunnels -> Read + Use." -ForegroundColor Gray
+    Write-Host "  3  Copy the key and paste it into the hidden prompt below." -ForegroundColor Gray
+    Write-Host "     Never use an Admin API key; do not share it in chat." -ForegroundColor Yellow
     Write-Host ""
     Open-SetupPage $url
     Write-Host ""
@@ -254,31 +266,30 @@ function Read-RuntimeApiKey {
         $secure = Read-Host "Paste Runtime API key here (input is hidden)" -AsSecureString
         $value = ConvertFrom-Secure $secure
         if (-not [string]::IsNullOrWhiteSpace($value)) {
-            Write-Host "OK - Runtime API key received." -ForegroundColor Green
+            Write-Host "  [OK] Key received (content hidden)." -ForegroundColor Green
             return $value
         }
-        Write-Host "The key cannot be empty." -ForegroundColor Red
+        Write-Host "  [!] Key cannot be empty; try again." -ForegroundColor Red
     }
 }
 
 function Show-ConnectorSetup([string]$ResolvedTunnelId) {
     $url = "https://chatgpt.com/plugins"
 
-    Write-Host ""
-    Write-Host "WindowsBridge  [3/3]  ChatGPT" -ForegroundColor Cyan
-    Write-Host "----------------------------------------" -ForegroundColor DarkGray
-    Write-Host ""
-    Write-Host "  Plugins -> + -> Add custom MCP server." -ForegroundColor White
-    Write-Host "  Name: WindowsBridge  |  Connection: Tunnel" -ForegroundColor Yellow
-    Write-Host "  Tunnel: select yours or paste $ResolvedTunnelId" -ForegroundColor Gray
-    Write-Host "  Authentication: No authentication (NoAuth)" -ForegroundColor Gray
-    Write-Host "  Review permissions -> Create as a plugin -> Install." -ForegroundColor White
+    Write-SetupHeading 3 "ChatGPT" "Finish the connection and verify it from ChatGPT."
+    Write-Host "  YOUR ACTION" -ForegroundColor Yellow
+    Write-Host "  1  Plugins -> + -> Add custom MCP server." -ForegroundColor White
+    Write-Host "  2  Name: WindowsBridge  |  Connection: Tunnel" -ForegroundColor Yellow
+    Write-Host "     Tunnel: select yours or paste $ResolvedTunnelId" -ForegroundColor Gray
+    Write-Host "     Authentication: No authentication (NoAuth)" -ForegroundColor Gray
+    Write-Host "  3  Review permissions -> Create as a plugin -> Install." -ForegroundColor White
     Write-Host ""
     Open-SetupPage $url
     Write-Host ""
-    Write-Host "Call a READ-ONLY WindowsBridge system-information tool in ChatGPT." -ForegroundColor White
-    Write-Host "Only that successful call verifies the end-to-end connection." -ForegroundColor Yellow
-    Write-Host "For problems: windowsbridgectl check / windowsbridgectl ui" -ForegroundColor DarkGray
+    Write-Host "  VERIFY CONNECTION" -ForegroundColor Yellow
+    Write-Host "  Call a READ-ONLY WindowsBridge system-information tool in ChatGPT." -ForegroundColor White
+    Write-Host "  Only that successful call verifies the end-to-end connection." -ForegroundColor Yellow
+    Write-Host "  Diagnostics: windowsbridgectl check / windowsbridgectl ui" -ForegroundColor DarkGray
 }
 
 $InstallerEnvironment = Test-InstallerEnvironment
@@ -312,6 +323,10 @@ if ([string]::IsNullOrWhiteSpace($RuntimeApiKey)) { throw "Runtime API key is re
 
 $NeedsConnectorSetup = (-not $AutoUpdate) -and ((-not $existing) -or ($PreviousTunnelId -ne $TunnelId))
 
+Write-Host ""
+Write-Host "  WindowsBridge  /  INSTALLING" -ForegroundColor Cyan
+Write-Host "  Pin source -> verify downloads -> start runtime -> check readiness" -ForegroundColor DarkGray
+Write-Host ""
 Write-Host "Resolving immutable WindowsBridge commit from GitHub..."
 $ResolvedRef = Resolve-SourceCommit $SourceRef
 $RawBase = "https://raw.githubusercontent.com/ZTD38F/WindowsBridge/$ResolvedRef"
@@ -537,7 +552,7 @@ try {
         ForEach-Object { Remove-Item $_.FullName -Recurse -Force -ErrorAction SilentlyContinue }
 
     Write-Host ""
-    Write-Host "WindowsBridge installed from GitHub." -ForegroundColor Green
+    Write-Host "  [READY] WindowsBridge installed from GitHub." -ForegroundColor Green
     Write-Host "Source commit: $ResolvedRef"
     Write-Host "OpenAI tunnel-client: $($tunnelRelease.tag_name)"
     Write-Host "Tunnel readiness: ready"

@@ -12,7 +12,7 @@ if (@($parseErrors).Count -gt 0) {
     throw "Installer parse errors: $(@($parseErrors).Count)"
 }
 
-foreach ($name in @("ConvertFrom-Secure","Assert-ValidTunnelId","Read-TunnelId",
+foreach ($name in @("ConvertFrom-Secure","Write-SetupHeading","Assert-ValidTunnelId","Read-TunnelId",
                      "Read-RuntimeApiKey","Show-ConnectorSetup")) {
     $nodes = @($ast.FindAll({
         param($node)
@@ -86,6 +86,13 @@ foreach ($label in @(
     "WindowsBridge  [1/3]  Tunnel",
     "WindowsBridge  [2/3]  API key",
     "WindowsBridge  [3/3]  ChatGPT",
+    "WindowsBridge  /  SECURE SETUP",
+    "[#--]  STEP 1/3",
+    "[##-]  STEP 2/3",
+    "[###]  STEP 3/3",
+    "VERIFY CONNECTION",
+    "Never use an Admin API key",
+    "Request Tunnels: Read + Manage",
     "create one named WindowsBridge",
     "Reuse a Restricted key, or create one named WindowsBridge",
     "Name: WindowsBridge  |  Connection: Tunnel",
