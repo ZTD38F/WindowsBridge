@@ -35,7 +35,7 @@ export default { fetch: async function routedFetch(request, env, ctx) {
     headers.set('Referrer-Policy','no-referrer');
     headers.set('X-Frame-Options','DENY');
     headers.set('Content-Security-Policy',
-      "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; " +
+      "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; " +
       "connect-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'");
     return new Response(request.method === 'HEAD' ? null : response.body, {
       status:200, headers
