@@ -61,7 +61,7 @@ $ast.FindAll({
     $functions[$_.Name] = $_
 }
 
-foreach ($requiredFunction in @("ConvertFrom-Secure","Read-RuntimeApiKey")) {
+foreach ($requiredFunction in @("ConvertFrom-Secure","Write-SetupHeading","Read-RuntimeApiKey")) {
     if (-not $functions.ContainsKey($requiredFunction)) {
         throw "Installer function is missing: $requiredFunction"
     }

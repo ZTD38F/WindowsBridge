@@ -266,7 +266,7 @@ function Read-RuntimeApiKey {
         $secure = Read-Host "Paste Runtime API key here (input is hidden)" -AsSecureString
         $value = ConvertFrom-Secure $secure
         if (-not [string]::IsNullOrWhiteSpace($value)) {
-            Write-Host "  [OK] Key received (content hidden)." -ForegroundColor Green
+            Write-Host "  [OK] Runtime API key received (content hidden)." -ForegroundColor Green
             return $value
         }
         Write-Host "  [!] Key cannot be empty; try again." -ForegroundColor Red
