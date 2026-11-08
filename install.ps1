@@ -215,9 +215,8 @@ function Read-TunnelId {
     $url = "https://platform.openai.com/settings/organization/tunnels"
 
     Write-Host ""
-    Write-Host "============================================================" -ForegroundColor DarkCyan
-    Write-Host " WindowsBridge  |  1/3  |  Tunnel" -ForegroundColor Cyan
-    Write-Host "============================================================" -ForegroundColor DarkCyan
+    Write-Host "WindowsBridge  [1/3]  Tunnel" -ForegroundColor Cyan
+    Write-Host "----------------------------------------" -ForegroundColor DarkGray
     Write-Host ""
     Write-Host "  Reuse your tunnel, or create one named WindowsBridge." -ForegroundColor White
     Write-Host "  Confirm Platform organization and ChatGPT workspace." -ForegroundColor Gray
@@ -241,11 +240,10 @@ function Read-RuntimeApiKey {
     $url = "https://platform.openai.com/settings/organization/api-keys"
 
     Write-Host ""
-    Write-Host "============================================================" -ForegroundColor DarkCyan
-    Write-Host " WindowsBridge  |  2/3  |  API key" -ForegroundColor Cyan
-    Write-Host "============================================================" -ForegroundColor DarkCyan
+    Write-Host "WindowsBridge  [2/3]  API key" -ForegroundColor Cyan
+    Write-Host "----------------------------------------" -ForegroundColor DarkGray
     Write-Host ""
-    Write-Host "  Create a Restricted key named WindowsBridge." -ForegroundColor White
+    Write-Host "  Reuse a Restricted key, or create one named WindowsBridge." -ForegroundColor White
     Write-Host "  Same organization; only Tunnels -> Read + Use." -ForegroundColor Gray
     Write-Host "  Do not use an Admin API key." -ForegroundColor DarkGray
     Write-Host ""
@@ -267,9 +265,8 @@ function Show-ConnectorSetup([string]$ResolvedTunnelId) {
     $url = "https://chatgpt.com/plugins"
 
     Write-Host ""
-    Write-Host "============================================================" -ForegroundColor DarkCyan
-    Write-Host " WindowsBridge  |  3/3  |  ChatGPT" -ForegroundColor Cyan
-    Write-Host "============================================================" -ForegroundColor DarkCyan
+    Write-Host "WindowsBridge  [3/3]  ChatGPT" -ForegroundColor Cyan
+    Write-Host "----------------------------------------" -ForegroundColor DarkGray
     Write-Host ""
     Write-Host "  Plugins -> + -> Add custom MCP server." -ForegroundColor White
     Write-Host "  Name: WindowsBridge  |  Connection: Tunnel" -ForegroundColor Yellow
