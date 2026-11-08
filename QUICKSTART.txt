@@ -1,34 +1,28 @@
 WindowsBridge 0.3.0 RC
 
-VERIFIED CLOUDFLARE PAGES INSTALLER WEBSITE
--------------------------------------------
-https://windowsbridge.pages.dev/
+INSTALL
+-------
+Stable source (review before running):
+https://raw.githubusercontent.com/ZTD38F/WindowsBridge/stable/install.ps1
 
-On the website, select Copy command. Then follow exactly three Windows actions:
-1. Win + R
-2. Ctrl + V
-3. Enter
+1. Tunnel: create or reuse "WindowsBridge". Choose the correct
+   Platform organization and ChatGPT workspace, then paste its tunnel_... ID.
+2. Key: create "WindowsBridge" as Restricted (Tunnels Read + Use).
+   Paste only in the hidden PowerShell prompt.
+3. ChatGPT Plugins: + -> Add custom MCP server -> WindowsBridge.
+   Connection: Tunnel; select yours. Authentication: NoAuth.
+   Review the warning, create and install the plugin.
 
-Review the source and any UAC prompt before approving changes.
+VERIFY
+------
+Call a read-only WindowsBridge system-information tool in ChatGPT.
+Local readiness alone does not prove ChatGPT connectivity.
 
-The readable one-command launcher downloads a local PowerShell file from the Cloudflare Pages /install.ps1 URL, redirecting to pinned public source. Cloudflare API, HTTP and source readback are verified (2026-10-26); first-install Windows device E2E remains unverified.
-
-Pinned source file (read/review before running):
-https://raw.githubusercontent.com/ZTD38F/WindowsBridge/47dca7c44d25aa9b26faf763b36d6c786d3ae6da/install.ps1
-
-FIRST INSTALL
--------------
-1. UAC -> Yes.
-2. Tunnel: reuse an existing one or create "WindowsBridge".
-   Select the intended Platform organization and ChatGPT workspace.
-   Paste its tunnel_... ID into PowerShell.
-3. API key: name "WindowsBridge", Restricted, Tunnels: Read + Use.
-   Paste the key at the hidden prompt (never share it in chat).
-4. ChatGPT Plugins: https://chatgpt.com/plugins
-   Add custom MCP server -> Name: WindowsBridge
-   Connection: Tunnel -> choose your tunnel
-   Authentication: No authentication (NoAuth)
-   Install; verify with a READ-ONLY WindowsBridge tool call.
+NOTE
+----
+windowsbridge.pages.dev is configured to serve plain-text main/install.ps1,
+not a website with a Copy command button. Elevated installation defaults to
+stable. This PR does not change the installed stable version or live machine.
 
 AUTO UPDATE
 -----------
