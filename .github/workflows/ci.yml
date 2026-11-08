@@ -272,8 +272,8 @@ jobs:
           (
             cd "$out"
             sha256sum _worker.js index.html style.css app.js > SHA256SUMS
-            printf 'github_repo=ZTD38F/WindowsBridge\nsource_commit=%s\nsource_branch=%s\npreview_only=true\nproduction_deploy=false\nrequired_preview_REDIRECT_URL=https://raw.githubusercontent.com/ZTD38F/WindowsBridge/stable/install.ps1\n' \
-              "$(git -C "$GITHUB_WORKSPACE" rev-parse HEAD)" "$GITHUB_HEAD_REF" > PREVIEW_MANIFEST.txt
+            printf 'github_repo=ZTD38F/WindowsBridge\nsource_commit=%s\nci_tested_checkout_commit=%s\nsource_branch=%s\npreview_only=true\nproduction_deploy=false\nrequired_preview_REDIRECT_URL=https://raw.githubusercontent.com/ZTD38F/WindowsBridge/stable/install.ps1\n' \
+              "${{ github.event.pull_request.head.sha || github.sha }}" "$(git -C "$GITHUB_WORKSPACE" rev-parse HEAD)" "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" > PREVIEW_MANIFEST.txt
             sha256sum -c SHA256SUMS
           )
       - name: Preserve independently verified preview package
