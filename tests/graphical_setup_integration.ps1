@@ -55,7 +55,7 @@ try {
     $secret = $window.FindName("UiKey")
     if ($tunnel -isnot [System.Windows.Controls.TextBox]) { throw "Tunnel input is not a TextBox" }
     if ($secret -isnot [System.Windows.Controls.PasswordBox]) { throw "Secret must use WPF PasswordBox" }
-    foreach ($name in @("UiProgress","UiProgressText","UiNext","UiCancel","UiConsole","UiBack","UiError","UiOpenLink")) {
+    foreach ($name in @("UiProgress","UiProgressText","UiNext","UiCancel","UiConsole","UiBack","UiError","UiOpenLink","UiContentScroll")) {
         if (-not $window.FindName($name)) { throw "Required control missing: $name" }
     }
     Set-GraphicalSetupStage -Window $window -Step 1

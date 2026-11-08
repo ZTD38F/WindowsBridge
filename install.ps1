@@ -241,7 +241,7 @@ function New-GraphicalSetupWindow {
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="WindowsBridge — подключение"
-        Width="760" Height="625" MinWidth="580" MinHeight="510"
+        Width="760" Height="700" MinWidth="580" MinHeight="510"
         WindowStartupLocation="CenterScreen" ResizeMode="CanResize"
         Background="#0B1220" Foreground="#E8F1FC" FontFamily="Segoe UI"
         UseLayoutRounding="True" SnapsToDevicePixels="True">
@@ -276,38 +276,38 @@ function New-GraphicalSetupWindow {
       </Setter>
     </Style>
   </Window.Resources>
-  <Grid Margin="30">
+  <Grid Margin="24">
     <Grid.RowDefinitions>
       <RowDefinition Height="Auto"/>
       <RowDefinition Height="*"/>
       <RowDefinition Height="Auto"/>
     </Grid.RowDefinitions>
-    <StackPanel Grid.Row="0" Margin="0,0,0,22">
+    <StackPanel Grid.Row="0" Margin="0,0,0,14">
       <DockPanel LastChildFill="False">
         <TextBlock Text="WindowsBridge" Foreground="#FFFFFF" FontWeight="Bold" FontSize="22"
                    DockPanel.Dock="Left"/>
         <TextBlock Text="SECURE MCP" Foreground="#6C829B" FontSize="11"
-                   DockPanel.Dock="Right" Margin="0,9,0,0"/>
+                   DockPanel.Dock="Right" Margin="0,6,0,0"/>
       </DockPanel>
       <TextBlock x:Name="UiProgressText" Text="01 / 03" Foreground="#58D9E4"
-                 FontSize="12" FontWeight="SemiBold" Margin="0,19,0,7"/>
+                 FontSize="12" FontWeight="SemiBold" Margin="0,12,0,6"/>
       <ProgressBar x:Name="UiProgress" Minimum="0" Maximum="100" Value="33" Height="5"
                    Foreground="#58D9E4" Background="#25364C" BorderThickness="0"/>
     </StackPanel>
     <Border Grid.Row="1" Background="#121F33" BorderBrush="#294158"
-            BorderThickness="1" CornerRadius="18" Padding="27">
-      <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            BorderThickness="1" CornerRadius="18" Padding="19">
+      <ScrollViewer x:Name="UiContentScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <StackPanel>
           <TextBlock x:Name="UiEyebrow" Text="01  /  ТУННЕЛЬ" Foreground="#58D9E4"
                      FontSize="12" FontWeight="SemiBold"/>
           <TextBlock x:Name="UiTitle" Text="Подключение к OpenAI" FontSize="27"
-                     FontWeight="SemiBold" Foreground="#F5F8FF" Margin="0,11,0,10"/>
+                     FontWeight="SemiBold" Foreground="#F5F8FF" Margin="0,8,0,8"/>
           <TextBlock x:Name="UiDescription" TextWrapping="Wrap" FontSize="14"
                      Foreground="#B8C9DB" LineHeight="23" MaxWidth="600"/>
-          <TextBlock x:Name="UiInstructions" TextWrapping="Wrap" Margin="0,18,0,16"
+          <TextBlock x:Name="UiInstructions" TextWrapping="Wrap" Margin="0,10,0,9"
                      FontSize="13" Foreground="#DEE8F5" LineHeight="23"/>
           <Border x:Name="UiTunnelPanel" Background="#0C1728" CornerRadius="10"
-                  Padding="14" Margin="0,0,0,12">
+                  Padding="11" Margin="0,0,0,8">
             <StackPanel>
               <TextBlock Text="TUNNEL ID" Foreground="#8BA4BE" FontSize="11" FontWeight="Bold"/>
               <TextBox x:Name="UiTunnel" FontFamily="Consolas" FontSize="14" Margin="0,8,0,0"
@@ -317,7 +317,7 @@ function New-GraphicalSetupWindow {
             </StackPanel>
           </Border>
           <Border x:Name="UiKeyPanel" Background="#0C1728" CornerRadius="10"
-                  Padding="14" Margin="0,0,0,12" Visibility="Collapsed">
+                  Padding="11" Margin="0,0,0,8" Visibility="Collapsed">
             <StackPanel>
               <TextBlock Text="RESTRICTED API KEY" Foreground="#8BA4BE" FontSize="11"
                          FontWeight="Bold"/>
@@ -328,16 +328,16 @@ function New-GraphicalSetupWindow {
             </StackPanel>
           </Border>
           <TextBlock x:Name="UiError" TextWrapping="Wrap" Foreground="#FDA8A8"
-                     FontSize="12" Margin="0,0,0,10"/>
+                     FontSize="12" Margin="0,0,0,5"/>
           <Button x:Name="UiOpenLink" Style="{StaticResource WizardButton}"
                   Background="#22374D" Foreground="#B9EAF0"
                   HorizontalAlignment="Left" Content="Открыть OpenAI Platform"/>
           <TextBlock x:Name="UiUrl" Foreground="#728EA8" FontSize="11"
-                     TextWrapping="Wrap" Margin="0,10,0,0"/>
+                     TextWrapping="Wrap" Margin="0,6,0,0"/>
         </StackPanel>
       </ScrollViewer>
     </Border>
-    <Grid Grid.Row="2" Margin="0,20,0,0">
+    <Grid Grid.Row="2" Margin="0,14,0,0">
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="Auto"/>
         <ColumnDefinition Width="*"/>
@@ -386,7 +386,7 @@ function Set-GraphicalSetupStage {
     if ($Step -eq 1) {
         $Window.FindName("UiEyebrow").Text = "01  /  ТУННЕЛЬ"
         $Window.FindName("UiTitle").Text = "Подключение к OpenAI"
-        $Window.FindName("UiDescription").Text = "Создайте новый туннель WindowsBridge или выберите существующий. Ничего не публикуется во внешней сети."
+        $Window.FindName("UiDescription").Text = "Создайте туннель WindowsBridge или выберите существующий. Соединение исходящее: открывать входящие порты на ПК не нужно."
         $Window.FindName("UiInstructions").Text = @(
             "1. Выберите нужную организацию и пространство ChatGPT."
             "2. Создайте туннель с именем WindowsBridge."

@@ -24,14 +24,18 @@ try {
     $fakeId = "tunnel_" + ("a" * 32)
     foreach ($stage in @(1,2,3)) {
         Set-GraphicalSetupStage -Window $window -Step $stage -SelectedTunnelId $fakeId
-        $root.Measure([System.Windows.Size]::new(700,565))
-        $root.Arrange([System.Windows.Rect]::new(0,0,700,565))
+        $root.Measure([System.Windows.Size]::new(700,625))
+        $root.Arrange([System.Windows.Rect]::new(0,0,700,625))
         $root.UpdateLayout()
+        $scroll = $window.FindName("UiContentScroll")
+        if ($scroll.ComputedVerticalScrollBarVisibility -ne [System.Windows.Visibility]::Collapsed) {
+            throw "Default desktop WPF layout clips content at stage $stage"
+        }
         $bitmap = [System.Windows.Media.Imaging.RenderTargetBitmap]::new(
-            700,565,96,96,[System.Windows.Media.PixelFormats]::Pbgra32
+            700,625,96,96,[System.Windows.Media.PixelFormats]::Pbgra32
         )
         $bitmap.Render($root)
-        if ($bitmap.PixelWidth -ne 700 -or $bitmap.PixelHeight -ne 565) {
+        if ($bitmap.PixelWidth -ne 700 -or $bitmap.PixelHeight -ne 625) {
             throw "Native UI render has unexpected dimensions"
         }
         $encoder = [System.Windows.Media.Imaging.PngBitmapEncoder]::new()
