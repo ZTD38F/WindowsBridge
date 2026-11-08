@@ -16,20 +16,25 @@ Before UAC elevation, the bootstrap resolves the selected GitHub channel to an i
 
 1. **Tunnel**
    - opens `https://platform.openai.com/settings/organization/tunnels`
-   - recommended name: `WindowsBridge - <COMPUTERNAME>`
-   - paste the resulting `tunnel_...` ID back into PowerShell
+   - select the intended Platform organization; **reuse** a compatible existing tunnel rather than create a duplicate
+   - if needed, create `WindowsBridge - <COMPUTERNAME>`
+   - associate the tunnel with **both** its Platform organization and the ChatGPT workspace that will use it
+   - creating/editing requires **Tunnels Read + Manage**; use requires **Tunnels Read + Use**
+   - paste only the resulting `tunnel_...` ID back into PowerShell
 2. **Runtime API key**
    - opens `https://platform.openai.com/settings/organization/api-keys`
    - recommended name: `WindowsBridge Runtime - <COMPUTERNAME>`
    - Restricted key with only **Tunnels → Read + Use**
    - paste it into the hidden PowerShell prompt
-3. **ChatGPT connector**
-   - after the local tunnel is actually ready, opens `https://chatgpt.com/#settings/Connectors`
+3. **ChatGPT plugin**
+   - after the local tunnel is ready, opens `https://chatgpt.com/plugins`
+   - choose **+ → Add custom MCP server**
    - Name: `WindowsBridge - <COMPUTERNAME>`
-   - Connection: `Tunnel`
-   - Authentication: `No authentication` (NoAuth)
+   - Connection: `Tunnel`; select the same tunnel or paste its ID
+   - MCP-server authentication: `No authentication` (NoAuth)
+   - install the plugin and execute a **read-only system-information tool** to verify end-to-end access
 
-NoAuth is the MCP-server authentication mode. The Secure MCP Tunnel itself remains authenticated by the restricted runtime API key.
+NoAuth is the MCP-server authentication mode, not permission to access the tunnel without credentials. The Secure MCP Tunnel remains authenticated by the restricted runtime API key. **Local `/readyz` success alone does not verify the ChatGPT-to-Windows end-to-end path.** WindowsBridge tools include administrative capabilities running as SYSTEM; install the plugin only in a trusted ChatGPT workspace and approve sensitive actions deliberately.
 
 ## What installation does automatically
 
