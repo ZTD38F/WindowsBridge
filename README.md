@@ -7,14 +7,12 @@ WindowsBridge gives ChatGPT controlled access to an authorized Windows computer 
 [Stable installer source](https://raw.githubusercontent.com/ZTD38F/WindowsBridge/stable/install.ps1) — review before running. The first install needs UAC consent and three setup stages:
 
 1. **Tunnel:** reuse an existing tunnel or create **WindowsBridge** in [OpenAI Tunnels](https://platform.openai.com/settings/organization/tunnels). Select the correct Platform organization and ChatGPT workspace. Paste its `tunnel_...` ID into the installer.
-2. **Key:** create a Restricted API key named **WindowsBridge** with **Tunnels Read + Use** in the same organization. Paste it only into the hidden installer prompt.
+2. **Key:** reuse a suitable Restricted API key or create **WindowsBridge**, with **Tunnels Read + Use** in the same organization. Paste it only into the hidden prompt.
 3. **ChatGPT:** in [Plugins](https://chatgpt.com/plugins), choose **+ → Add custom MCP server**, name it **WindowsBridge**, select **Tunnel**, select your tunnel, set MCP-server authentication to **No authentication (NoAuth)**, review the risk warning, create the plugin, and install it.
 
 **Verify:** use a read-only WindowsBridge system-information tool from ChatGPT. Local `/readyz` alone does not prove end-to-end access.
 
 **Security:** the tunnel runtime is authenticated by the restricted key even though the MCP server uses NoAuth. WindowsBridge has SYSTEM-level administrative tools; install it only in a trusted workspace and approve sensitive operations deliberately.
-
-**Distribution note:** [windowsbridge.pages.dev](https://windowsbridge.pages.dev/) is configured in the repository as a *plain-text PowerShell source endpoint* tracking `main`, **not** an installer website with a Copy button. The installer uses `stable` by default when it elevates, so reviewing newer code from `main` does not install that code automatically. No live-device first-install E2E or current external Pages deployment was verified in this PR.
 
 ## What installation does automatically
 
@@ -122,7 +120,7 @@ Key controls include:
 
 ## Source and release channels
 
-The Pages Worker repository configuration serves PowerShell source rather than an HTML installation wizard. Its route aims to avoid stale cached GitHub source; routing has CI tests, but the live Cloudflare deployment was not independently probed here. Use the reviewed stable installer for ordinary installs.
+The Pages Worker repository configuration serves a **plain-text PowerShell source endpoint** rather than an installer website with a Copy button. It tracks `main` for source retrieval, but the installer defaults to `stable` when elevating. The routing has CI tests; the live Cloudflare deployment and first-install Windows-to-ChatGPT E2E were not independently verified in this PR. Use the reviewed stable installer for ordinary installs.
 
 - `stable`: normal installations and automatic updates.
 - `main`: development only.
