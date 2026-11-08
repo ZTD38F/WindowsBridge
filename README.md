@@ -16,20 +16,18 @@ Before UAC elevation, the bootstrap resolves the selected GitHub channel to an i
 
 1. **Tunnel**
    - opens `https://platform.openai.com/settings/organization/tunnels`
-   - select the intended Platform organization; **reuse** a compatible existing tunnel rather than create a duplicate
-   - if needed, create `WindowsBridge - <COMPUTERNAME>`
-   - associate the tunnel with **both** its Platform organization and the ChatGPT workspace that will use it
-   - creating/editing requires **Tunnels Read + Manage**; use requires **Tunnels Read + Use**
-   - paste only the resulting `tunnel_...` ID back into PowerShell
+   - reuse an existing tunnel or create one named `WindowsBridge`
+   - select the intended Platform organization and ChatGPT workspace
+   - paste the `tunnel_...` ID into PowerShell (not an API key)
+   - creation permissions: **Tunnels Read + Manage**; runtime: **Tunnels Read + Use**
 2. **Runtime API key**
    - opens `https://platform.openai.com/settings/organization/api-keys`
-   - recommended name: `WindowsBridge Runtime - <COMPUTERNAME>`
-   - Restricted key with only **Tunnels → Read + Use**
+   - name: `WindowsBridge`; **Restricted** with only **Tunnels → Read + Use**
    - paste it into the hidden PowerShell prompt
 3. **ChatGPT plugin**
    - after the local tunnel is ready, opens `https://chatgpt.com/plugins`
    - choose **+ → Add custom MCP server**
-   - Name: `WindowsBridge - <COMPUTERNAME>`
+   - Name: `WindowsBridge`
    - Connection: `Tunnel`; select the same tunnel or paste its ID
    - MCP-server authentication: `No authentication` (NoAuth)
    - install the plugin and execute a **read-only system-information tool** to verify end-to-end access
