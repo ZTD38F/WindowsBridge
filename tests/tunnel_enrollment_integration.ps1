@@ -51,17 +51,33 @@ if ($script:OpenedUrls.Count -ne 1 -or
 
 $source = Get-Content -LiteralPath $installerPath -Raw
 foreach ($requiredText in @(
-    "WindowsBridge - Step 1 of 3: Create the OpenAI tunnel",
+    "WindowsBridge  |  1/3  |  Tunnel",
+    "Reuse your tunnel, or create one named WindowsBridge.",
+    "Platform organization and ChatGPT workspace.",
+    "Never paste an API key here.",
     "Tunnels: Read + Manage.",
-    "Reuse an existing WindowsBridge tunnel",
-    "the ChatGPT workspace where the plugin will run.",
-    "Do not paste an API key here.",
-    "That does not look like a valid Tunnel ID.",
-    "Expected: tunnel_ followed by 32 lowercase hexadecimal characters."
+    "Invalid tunnel ID. Expected: tunnel_ followed by 32 lowercase hexadecimal characters."
 )) {
     if (-not $source.Contains($requiredText)) {
         throw "Guided enrollment is missing required text: $requiredText"
     }
+}
+
+# User-facing resource names must stay minimal and identical. The underlying
+# tunnel ID distinguishes different devices, so no COMPUTERNAME suffix is needed.
+$labels = @(
+    'create one named WindowsBridge.',
+    'Name: WindowsBridge',
+    'Connection: Tunnel'
+)
+foreach ($label in $labels) {
+    if (-not $source.Contains($label)) {
+        throw "Missing minimal onboarding label: $label"
+    }
+}
+if ($source -match 'WindowsBridge\s*-\s*(?:\$env:COMPUTERNAME|<COMPUTERNAME>|PC)\b' -or
+    $source -match 'WindowsBridge Runtime\s*-') {
+    throw "User-facing WindowsBridge resource name includes an unnecessary suffix."
 }
 
 Write-Host "Guided tunnel enrollment integration checks passed."
