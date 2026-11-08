@@ -74,6 +74,16 @@ jobs:
       - name: Verify native WPF three-stage UI, CLI fallback and key masking
         shell: powershell
         run: .\tests\graphical_setup_integration.ps1
+      - name: Render native WPF wizard snapshots with fixture data only
+        shell: powershell
+        run: .\tests\render_setup_snapshots.ps1
+      - name: Retain native WPF screenshot evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: windowsbridge-native-wpf-preview
+          path: .ci-artifacts/wpf-step*.png
+          retention-days: 7
+          if-no-files-found: error
       - name: Validate copied Win+R launcher on Windows PowerShell 5.1
         shell: powershell
         run: .\tests\launcher_contract_integration.ps1
