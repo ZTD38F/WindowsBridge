@@ -1,11 +1,12 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [string]$TunnelId,
     [string]$RuntimeApiKey,
     [string]$SourceRef = "stable",
     [switch]$AutoUpdate,
     [switch]$DisableAutoUpdate,
-    [switch]$PreflightOnly
+    [switch]$PreflightOnly,
+    [switch]$ConsoleSetup
 )
 
 $ErrorActionPreference = "Stop"
@@ -110,6 +111,7 @@ function Invoke-Elevated {
         $args = @("-NoProfile","-ExecutionPolicy","Bypass","-File",('"{0}"' -f $tmp),"-SourceRef",$ResolvedBootstrapRef)
         if ($AutoUpdate) { $args += "-AutoUpdate" }
         if ($DisableAutoUpdate) { $args += "-DisableAutoUpdate" }
+        if ($ConsoleSetup) { $args += "-ConsoleSetup" }
         $p = Start-Process -FilePath "powershell.exe" -Verb RunAs -ArgumentList $args -Wait -PassThru
         exit $p.ExitCode
     } finally {
@@ -218,6 +220,305 @@ function Write-SetupHeading([int]$Step, [string]$Title, [string]$Subtitle) {
     Write-Host ""
 }
 
+function Test-GraphicalSetupSupport {
+    if ($ConsoleSetup -or $AutoUpdate -or -not [Environment]::UserInteractive) { return $false }
+    if ([Threading.Thread]::CurrentThread.GetApartmentState() -ne [Threading.ApartmentState]::STA) {
+        Write-Host "WindowsBridge: GUI needs STA; using console." -ForegroundColor Yellow
+        return $false
+    }
+    try {
+        if ((Get-Process -Id $PID).SessionId -eq 0) { return $false }
+        Add-Type -AssemblyName PresentationFramework,PresentationCore,WindowsBase -ErrorAction Stop
+        return $true
+    } catch {
+        Write-Host "WindowsBridge: WPF unavailable; using console." -ForegroundColor Yellow
+        return $false
+    }
+}
+
+function New-GraphicalSetupWindow {
+    $xaml = @'
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="WindowsBridge — подключение"
+        Width="760" Height="625" MinWidth="580" MinHeight="510"
+        WindowStartupLocation="CenterScreen" ResizeMode="CanResize"
+        Background="#0B1220" Foreground="#E8F1FC" FontFamily="Segoe UI"
+        UseLayoutRounding="True" SnapsToDevicePixels="True">
+  <Window.Resources>
+    <Style x:Key="WizardButton" TargetType="{x:Type Button}">
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Padding" Value="18,11"/>
+      <Setter Property="Background" Value="#56CEDB"/>
+      <Setter Property="Foreground" Value="#071826"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="{x:Type Button}">
+            <Border Background="{TemplateBinding Background}" CornerRadius="9"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}">
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                Margin="{TemplateBinding Padding}"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Opacity" Value="0.88"/>
+              </Trigger>
+              <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Opacity" Value="0.45"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+  </Window.Resources>
+  <Grid Margin="30">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="*"/>
+      <RowDefinition Height="Auto"/>
+    </Grid.RowDefinitions>
+    <StackPanel Grid.Row="0" Margin="0,0,0,22">
+      <DockPanel LastChildFill="False">
+        <TextBlock Text="WindowsBridge" Foreground="#FFFFFF" FontWeight="Bold" FontSize="22"
+                   DockPanel.Dock="Left"/>
+        <TextBlock Text="SECURE MCP" Foreground="#6C829B" FontSize="11"
+                   DockPanel.Dock="Right" Margin="0,9,0,0"/>
+      </DockPanel>
+      <TextBlock x:Name="UiProgressText" Text="01 / 03" Foreground="#58D9E4"
+                 FontSize="12" FontWeight="SemiBold" Margin="0,19,0,7"/>
+      <ProgressBar x:Name="UiProgress" Minimum="0" Maximum="100" Value="33" Height="5"
+                   Foreground="#58D9E4" Background="#25364C" BorderThickness="0"/>
+    </StackPanel>
+    <Border Grid.Row="1" Background="#121F33" BorderBrush="#294158"
+            BorderThickness="1" CornerRadius="18" Padding="27">
+      <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel>
+          <TextBlock x:Name="UiEyebrow" Text="01  /  ТУННЕЛЬ" Foreground="#58D9E4"
+                     FontSize="12" FontWeight="SemiBold"/>
+          <TextBlock x:Name="UiTitle" Text="Подключение к OpenAI" FontSize="27"
+                     FontWeight="SemiBold" Foreground="#F5F8FF" Margin="0,11,0,10"/>
+          <TextBlock x:Name="UiDescription" TextWrapping="Wrap" FontSize="14"
+                     Foreground="#B8C9DB" LineHeight="23" MaxWidth="600"/>
+          <TextBlock x:Name="UiInstructions" TextWrapping="Wrap" Margin="0,18,0,16"
+                     FontSize="13" Foreground="#DEE8F5" LineHeight="23"/>
+          <Border x:Name="UiTunnelPanel" Background="#0C1728" CornerRadius="10"
+                  Padding="14" Margin="0,0,0,12">
+            <StackPanel>
+              <TextBlock Text="TUNNEL ID" Foreground="#8BA4BE" FontSize="11" FontWeight="Bold"/>
+              <TextBox x:Name="UiTunnel" FontFamily="Consolas" FontSize="14" Margin="0,8,0,0"
+                       MinHeight="34" Padding="8" Foreground="#F5F8FF" Background="#192B44"
+                       CaretBrush="#56CEDB" BorderBrush="#355774" BorderThickness="1"
+                       ToolTip="tunnel_ и 32 строчные шестнадцатеричные цифры"/>
+            </StackPanel>
+          </Border>
+          <Border x:Name="UiKeyPanel" Background="#0C1728" CornerRadius="10"
+                  Padding="14" Margin="0,0,0,12" Visibility="Collapsed">
+            <StackPanel>
+              <TextBlock Text="RESTRICTED API KEY" Foreground="#8BA4BE" FontSize="11"
+                         FontWeight="Bold"/>
+              <PasswordBox x:Name="UiKey" FontSize="14" Margin="0,8,0,0"
+                           MinHeight="34" Padding="8" Foreground="#F5F8FF"
+                           Background="#192B44" BorderBrush="#355774"
+                           BorderThickness="1" ToolTip="Ввод скрыт; ключ не копируется в логи"/>
+            </StackPanel>
+          </Border>
+          <TextBlock x:Name="UiError" TextWrapping="Wrap" Foreground="#FDA8A8"
+                     FontSize="12" Margin="0,0,0,10"/>
+          <Button x:Name="UiOpenLink" Style="{StaticResource WizardButton}"
+                  Background="#22374D" Foreground="#B9EAF0"
+                  HorizontalAlignment="Left" Content="Открыть OpenAI Platform"/>
+          <TextBlock x:Name="UiUrl" Foreground="#728EA8" FontSize="11"
+                     TextWrapping="Wrap" Margin="0,10,0,0"/>
+        </StackPanel>
+      </ScrollViewer>
+    </Border>
+    <Grid Grid.Row="2" Margin="0,20,0,0">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="Auto"/>
+        <ColumnDefinition Width="*"/>
+        <ColumnDefinition Width="Auto"/>
+        <ColumnDefinition Width="Auto"/>
+        <ColumnDefinition Width="Auto"/>
+      </Grid.ColumnDefinitions>
+      <Button x:Name="UiConsole" Grid.Column="0" Style="{StaticResource WizardButton}"
+              Background="#172638" Foreground="#A9BCD0" Content="Консольный режим"
+              Margin="0,0,10,0"/>
+      <Button x:Name="UiBack" Grid.Column="2" Style="{StaticResource WizardButton}"
+              Background="#24344B" Foreground="#DBE7F4" Content="Назад"
+              Margin="0,0,8,0" Visibility="Collapsed"/>
+      <Button x:Name="UiCancel" Grid.Column="3" Style="{StaticResource WizardButton}"
+              Background="#24344B" Foreground="#DBE7F4" Content="Отмена"
+              IsCancel="True" Margin="0,0,8,0"/>
+      <Button x:Name="UiNext" Grid.Column="4" Style="{StaticResource WizardButton}"
+              Content="Продолжить" IsDefault="True"/>
+    </Grid>
+  </Grid>
+</Window>
+'@
+    $reader = New-Object System.Xml.XmlNodeReader ([xml]$xaml)
+    return [System.Windows.Markup.XamlReader]::Load($reader)
+}
+
+function Set-GraphicalSetupStage {
+    param([object]$Window, [ValidateSet(1,2,3)][int]$Step, [string]$SelectedTunnelId = "")
+    $tunnel = $Window.FindName("UiTunnelPanel")
+    $key = $Window.FindName("UiKeyPanel")
+    $back = $Window.FindName("UiBack")
+    $next = $Window.FindName("UiNext")
+    $console = $Window.FindName("UiConsole")
+    $cancel = $Window.FindName("UiCancel")
+    $Window.FindName("UiError").Text = ""
+    $Window.FindName("UiProgress").Value = $Step * 100 / 3
+    $Window.FindName("UiProgressText").Text = ("{0:00} / 03" -f $Step)
+    $tunnel.Visibility = [System.Windows.Visibility]::Collapsed
+    $key.Visibility = [System.Windows.Visibility]::Collapsed
+    $back.Visibility = [System.Windows.Visibility]::Collapsed
+    $console.Visibility = [System.Windows.Visibility]::Visible
+    $cancel.Visibility = [System.Windows.Visibility]::Visible
+    $next.Content = "Продолжить"
+
+    $url = ""
+    if ($Step -eq 1) {
+        $Window.FindName("UiEyebrow").Text = "01  /  ТУННЕЛЬ"
+        $Window.FindName("UiTitle").Text = "Подключение к OpenAI"
+        $Window.FindName("UiDescription").Text = "Создайте новый туннель WindowsBridge или выберите существующий. Ничего не публикуется во внешней сети."
+        $Window.FindName("UiInstructions").Text = @(
+            "1. Выберите нужную организацию и пространство ChatGPT."
+            "2. Создайте туннель с именем WindowsBridge."
+            "3. Скопируйте его ID (не ключ). При ошибке 403 нужны права Tunnels: Read + Manage."
+        ) -join [Environment]::NewLine
+        $tunnel.Visibility = [System.Windows.Visibility]::Visible
+        $url = "https://platform.openai.com/settings/organization/tunnels"
+    } elseif ($Step -eq 2) {
+        $Window.FindName("UiEyebrow").Text = "02  /  ДОСТУП"
+        $Window.FindName("UiTitle").Text = "Защищённый ключ"
+        $Window.FindName("UiDescription").Text = "Вставьте Restricted API key из той же организации. Ключ скрыт, не выводится на экран и не передаётся сайту WindowsBridge."
+        $Window.FindName("UiInstructions").Text = @(
+            "1. Откройте API Keys в OpenAI Platform."
+            "2. Дайте только Tunnels: Read + Use."
+            "3. Вставьте ключ ниже. Admin API key использовать нельзя."
+        ) -join [Environment]::NewLine
+        $key.Visibility = [System.Windows.Visibility]::Visible
+        $back.Visibility = [System.Windows.Visibility]::Visible
+        $url = "https://platform.openai.com/settings/organization/api-keys"
+    } else {
+        $Window.FindName("UiEyebrow").Text = "03  /  CHATGPT"
+        $Window.FindName("UiTitle").Text = "WindowsBridge запущен"
+        $Window.FindName("UiDescription").Text = "Локальная проверка туннеля завершена. Подключение ChatGPT необходимо подтвердить отдельно."
+        $Window.FindName("UiInstructions").Text = @(
+            "1. Plugins → + → Add custom MCP server."
+            "2. Имя: WindowsBridge. Connection: Tunnel."
+            "3. Выберите туннель: $SelectedTunnelId"
+            "4. Authentication: No authentication (NoAuth). Проверьте разрешения и установите плагин."
+            "5. Для E2E вызовите в ChatGPT ТОЛЬКО read-only инструмент WindowsBridge."
+        ) -join [Environment]::NewLine
+        $next.Content = "Закрыть"
+        $console.Visibility = [System.Windows.Visibility]::Collapsed
+        $cancel.Visibility = [System.Windows.Visibility]::Collapsed
+        $url = "https://chatgpt.com/plugins"
+    }
+    $Window.FindName("UiUrl").Text = $url
+    $Window.FindName("UiOpenLink").Content = if ($Step -eq 3) { "Открыть ChatGPT Plugins" } else { "Открыть OpenAI Platform" }
+}
+
+function Read-GraphicalSetupCredentials {
+    param([bool]$NeedTunnel, [bool]$NeedKey, [string]$InitialTunnelId = "")
+    $window = New-GraphicalSetupWindow
+    $state = [pscustomobject]@{
+        Mode = "cancel"
+        Step = $(if ($NeedTunnel) { 1 } else { 2 })
+        TunnelId = $InitialTunnelId
+        RuntimeApiKey = $null
+    }
+    $inputTunnel = $window.FindName("UiTunnel")
+    $inputKey = $window.FindName("UiKey")
+    $inputTunnel.Text = $InitialTunnelId
+    $next = $window.FindName("UiNext")
+    $back = $window.FindName("UiBack")
+    $errorText = $window.FindName("UiError")
+    Set-GraphicalSetupStage -Window $window -Step $state.Step
+    if (-not $NeedTunnel) { $back.Visibility = [System.Windows.Visibility]::Collapsed }
+
+    $window.FindName("UiOpenLink").Add_Click({
+        if ($state.Step -eq 1) {
+            Open-SetupPage "https://platform.openai.com/settings/organization/tunnels"
+        } else {
+            Open-SetupPage "https://platform.openai.com/settings/organization/api-keys"
+        }
+    }.GetNewClosure())
+    $next.Add_Click({
+        if ($state.Step -eq 1) {
+            $candidate = $inputTunnel.Text.Trim()
+            if ($candidate -cnotmatch '^tunnel_[0-9a-f]{32}$') {
+                $errorText.Text = "Нужен ID формата tunnel_ и 32 строчных шестнадцатеричных символа."
+                return
+            }
+            $state.TunnelId = $candidate
+            if ($NeedKey) {
+                $state.Step = 2
+                Set-GraphicalSetupStage -Window $window -Step 2
+                $inputKey.Focus() | Out-Null
+            } else {
+                $state.Mode = "ok"
+                $window.DialogResult = $true
+            }
+        } else {
+            $secret = $inputKey.SecurePassword
+            try {
+                if ($secret.Length -eq 0) {
+                    $errorText.Text = "Ключ не может быть пустым."
+                    return
+                }
+                $state.RuntimeApiKey = ConvertFrom-Secure $secret
+            } finally {
+                $secret.Dispose()
+            }
+            if ([string]::IsNullOrWhiteSpace($state.RuntimeApiKey)) {
+                $state.RuntimeApiKey = $null
+                $errorText.Text = "Ключ не может быть пустым."
+                return
+            }
+            $state.Mode = "ok"
+            $window.DialogResult = $true
+        }
+    }.GetNewClosure())
+    $back.Add_Click({
+        if ($NeedTunnel -and $state.Step -eq 2) {
+            $state.Step = 1
+            Set-GraphicalSetupStage -Window $window -Step 1
+            $inputTunnel.Focus() | Out-Null
+        }
+    }.GetNewClosure())
+    $window.FindName("UiConsole").Add_Click({
+        $state.Mode = "console"
+        $window.Close()
+    }.GetNewClosure())
+    try {
+        [void]$window.ShowDialog()
+        return $state
+    } finally {
+        $inputKey.Clear()
+    }
+}
+
+function Show-GraphicalConnectorSetup([string]$SelectedTunnelId) {
+    $window = New-GraphicalSetupWindow
+    Set-GraphicalSetupStage -Window $window -Step 3 -SelectedTunnelId $SelectedTunnelId
+    $window.FindName("UiOpenLink").Add_Click({
+        Open-SetupPage "https://chatgpt.com/plugins"
+    }.GetNewClosure())
+    $window.FindName("UiNext").Add_Click({
+        $window.Close()
+    }.GetNewClosure())
+    [void]$window.ShowDialog()
+}
+
+
 function Assert-ValidTunnelId([string]$Value) {
     if ($Value -cnotmatch '^tunnel_[0-9a-f]{32}$') {
         throw "Invalid OpenAI tunnel ID. Expected tunnel_ followed by 32 lowercase hexadecimal characters."
@@ -313,6 +614,20 @@ $PreviousTunnelId = if ($existing) { [string]$existing.tunnel_id } else { $null 
 
 if ($AutoUpdate -and -not $existing) {
     throw "Automatic update requires an existing WindowsBridge installation."
+}
+
+$UseGraphicalSetup = Test-GraphicalSetupSupport
+if ($UseGraphicalSetup -and (-not $TunnelId -or -not $RuntimeApiKey)) {
+    $ui = Read-GraphicalSetupCredentials -NeedTunnel (-not $TunnelId) -NeedKey (-not $RuntimeApiKey) -InitialTunnelId $TunnelId
+    if ($ui.Mode -eq "console") {
+        $UseGraphicalSetup = $false
+    } elseif ($ui.Mode -eq "ok") {
+        if (-not $TunnelId) { $TunnelId = $ui.TunnelId }
+        if (-not $RuntimeApiKey) { $RuntimeApiKey = $ui.RuntimeApiKey }
+    } else {
+        throw "WindowsBridge setup canceled by user."
+    }
+    $ui = $null
 }
 
 if (-not $TunnelId) { $TunnelId = Read-TunnelId }
@@ -560,7 +875,16 @@ try {
     Write-Host "Control command: windowsbridgectl check"
 
     if ($NeedsConnectorSetup) {
-        Show-ConnectorSetup $TunnelId
+        if ($UseGraphicalSetup) {
+            try {
+                Show-GraphicalConnectorSetup $TunnelId
+            } catch {
+                Write-Host "Graphical completion window unavailable; showing console instructions." -ForegroundColor Yellow
+                Show-ConnectorSetup $TunnelId
+            }
+        } else {
+            Show-ConnectorSetup $TunnelId
+        }
     } elseif (-not $AutoUpdate) {
         Write-Host ""
         Write-Host "Existing OpenAI tunnel configuration reused; no connector setup is needed." -ForegroundColor Green
