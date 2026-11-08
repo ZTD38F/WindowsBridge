@@ -92,6 +92,7 @@ try {
     assert.equal(diagnostics.dark,'rgb(8, 13, 22)');
     assert.equal(diagnostics.steps,3);
     assert.equal(errors.length,0,`Browser errors: ${errors.join('; ')}`);
+    await page.screenshot({path:join(output,`windowsbridge-${size.name}.png`),fullPage:true});
     if(size.name==='desktop'){
       await page.getByRole('button',{name:/Скопировать команду/}).click();
       const clipboard=await page.evaluate(()=>navigator.clipboard.readText());
@@ -103,7 +104,6 @@ try {
       const links=await page.locator('a[href^="https://"]').count();
       assert.ok(links>=4);
     }
-    await page.screenshot({path:join(output,`windowsbridge-${size.name}.png`),fullPage:true});
     console.log(`VISUAL PASS ${size.name}: ${size.width}x${size.height}, no overflow, 3 steps, dark CSS, zero console errors`);
     await context.close();
   }
