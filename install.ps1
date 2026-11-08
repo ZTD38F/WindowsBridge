@@ -219,17 +219,20 @@ function Read-TunnelId {
     Write-Host " WindowsBridge - Step 1 of 3: Create the OpenAI tunnel" -ForegroundColor Cyan
     Write-Host "============================================================" -ForegroundColor DarkCyan
     Write-Host ""
-    Write-Host "A browser page will open. In OpenAI Platform:" -ForegroundColor White
-    Write-Host "  1. Create a new tunnel." -ForegroundColor Gray
-    Write-Host "  2. Name: WindowsBridge - $env:COMPUTERNAME" -ForegroundColor Yellow
-    Write-Host "  3. If a workspace selector appears, choose the ChatGPT workspace" -ForegroundColor Gray
-    Write-Host "     where you will use WindowsBridge." -ForegroundColor Gray
-    Write-Host "  4. Create/save the tunnel." -ForegroundColor Gray
+    Write-Host "OpenAI Platform will open. You can reuse a suitable tunnel:" -ForegroundColor White
+    Write-Host "  1. Select the correct Platform organization." -ForegroundColor Gray
+    Write-Host "  2. Reuse an existing WindowsBridge tunnel, or create a new one." -ForegroundColor Gray
+    Write-Host "     New tunnel name: WindowsBridge - $env:COMPUTERNAME" -ForegroundColor Yellow
+    Write-Host "  3. Confirm associations: your Platform organization AND" -ForegroundColor Gray
+    Write-Host "     the ChatGPT workspace where the plugin will run." -ForegroundColor Gray
+    Write-Host "  4. Save the tunnel or any changed associations." -ForegroundColor Gray
     Write-Host "  5. Copy its ID. It looks like:" -ForegroundColor Gray
     Write-Host "     tunnel_0123456789abcdef0123456789abcdef" -ForegroundColor Yellow
+    Write-Host "     Do not paste an API key here." -ForegroundColor DarkGray
     Write-Host ""
-    Write-Host "If Create tunnel is unavailable or returns 403, your Platform role needs" -ForegroundColor DarkGray
-    Write-Host "Tunnels: Read + Manage." -ForegroundColor DarkGray
+    Write-Host "If Create tunnel returns 403, your Platform role needs" -ForegroundColor DarkGray
+    Write-Host "Tunnels: Read + Manage. Using it also requires Read + Use." -ForegroundColor DarkGray
+    Write-Host "If the tunnel is missing in ChatGPT, check workspace associations." -ForegroundColor DarkGray
     Write-Host ""
     Write-Host "OpenAI Tunnels:" -ForegroundColor White
     Open-SetupPage $url
@@ -254,8 +257,8 @@ function Read-RuntimeApiKey {
     Write-Host " WindowsBridge - Step 2 of 3: Create the Runtime API key" -ForegroundColor Cyan
     Write-Host "============================================================" -ForegroundColor DarkCyan
     Write-Host ""
-    Write-Host "In OpenAI Platform Runtime API keys:" -ForegroundColor White
-    Write-Host "  1. Create a new Runtime API key." -ForegroundColor Gray
+    Write-Host "In the same Platform organization as the tunnel:" -ForegroundColor White
+    Write-Host "  1. Create a new Runtime API key (or reuse an appropriate one)." -ForegroundColor Gray
     Write-Host "  2. Name: WindowsBridge Runtime - $env:COMPUTERNAME" -ForegroundColor Yellow
     Write-Host "  3. Choose: Restricted" -ForegroundColor Yellow
     Write-Host "  4. Grant only:" -ForegroundColor Gray
@@ -280,14 +283,15 @@ function Read-RuntimeApiKey {
 }
 
 function Show-ConnectorSetup([string]$ResolvedTunnelId) {
-    $url = "https://chatgpt.com/#settings/Connectors"
+    $url = "https://chatgpt.com/plugins"
 
     Write-Host ""
     Write-Host "============================================================" -ForegroundColor DarkCyan
     Write-Host " WindowsBridge - Step 3 of 3: Add it to ChatGPT" -ForegroundColor Cyan
     Write-Host "============================================================" -ForegroundColor DarkCyan
     Write-Host ""
-    Write-Host "WindowsBridge is running. Finish the connector in ChatGPT:" -ForegroundColor White
+    Write-Host "WindowsBridge is locally ready. Finish the ChatGPT plugin:" -ForegroundColor White
+    Write-Host "  ChatGPT Plugins -> + -> Add custom MCP server." -ForegroundColor Gray
     Write-Host "  Name:           WindowsBridge - $env:COMPUTERNAME" -ForegroundColor Yellow
     Write-Host "  Connection:     Tunnel" -ForegroundColor Yellow
     Write-Host "  Tunnel:         select WindowsBridge - $env:COMPUTERNAME, or paste:" -ForegroundColor Gray
@@ -297,10 +301,13 @@ function Show-ConnectorSetup([string]$ResolvedTunnelId) {
     Write-Host "NoAuth is only the MCP-server authentication mode." -ForegroundColor DarkGray
     Write-Host "The OpenAI Secure MCP Tunnel is still authenticated by the Runtime API key." -ForegroundColor DarkGray
     Write-Host ""
-    Write-Host "ChatGPT Connectors:" -ForegroundColor White
+    Write-Host "ChatGPT Plugins:" -ForegroundColor White
     Open-SetupPage $url
     Write-Host ""
-    Write-Host "After saving the connector, rescan/sync its tools if ChatGPT asks." -ForegroundColor Gray
+    Write-Host "Create/install the plugin. Refresh its tools if ChatGPT asks." -ForegroundColor Gray
+    Write-Host "Then call a READ-ONLY WindowsBridge system-information tool in ChatGPT." -ForegroundColor Gray
+    Write-Host "Only that successful call verifies the end-to-end connection." -ForegroundColor Yellow
+    Write-Host "If discovery fails: run windowsbridgectl check and windowsbridgectl ui." -ForegroundColor Gray
 }
 
 $InstallerEnvironment = Test-InstallerEnvironment
