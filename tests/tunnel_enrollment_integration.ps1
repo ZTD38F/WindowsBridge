@@ -53,6 +53,9 @@ $source = Get-Content -LiteralPath $installerPath -Raw
 foreach ($requiredText in @(
     "WindowsBridge - Step 1 of 3: Create the OpenAI tunnel",
     "Tunnels: Read + Manage.",
+    "Reuse an existing WindowsBridge tunnel",
+    "the ChatGPT workspace where the plugin will run.",
+    "Do not paste an API key here.",
     "That does not look like a valid Tunnel ID.",
     "Expected: tunnel_ followed by 32 lowercase hexadecimal characters."
 )) {
