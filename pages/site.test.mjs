@@ -91,13 +91,14 @@ test('unavailable Atom and rate-limited GitHub API fail closed, not stale',async
   assert.equal(res.status,502);
 });
 
-test('manifest declares mutable GitHub main, no hard-coded revision binding',()=>{
+test('manifest declares dynamic GitHub stable, matching the copied launcher',()=>{
   assert.equal(manifest.mode,2);
   assert.equal(manifest.dynamic,true);
-  assert.equal(manifest.source_ref,'main');
+  assert.equal(manifest.source_ref,'stable');
+  assert.equal(manifest.browser_ui.command_source_ref,'stable');
   assert.equal(manifest.freshness_strategy,'github-atom-sha');
   assert.equal(source.hostname,'raw.githubusercontent.com');
-  assert.equal(branch,'main');
+  assert.equal(branch,'stable');
   assert.ok(!/\/[a-f0-9]{40}\//i.test(manifest.install_url));
   const deployed=readFileSync(join(base,'_worker.js'),'utf8');
   assert.ok(deployed.includes('env?.REDIRECT_URL'));
