@@ -202,6 +202,34 @@ jobs:
           if (-not $installer.Contains('supervisor.py')) { throw "Installer must deploy the long-lived supervisor." }
           if (-not $ctl.Contains('update-status')) { throw "Control CLI must expose update state." }
 
+  visual-browser-e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Install pinned Playwright harness
+        run: npm install --no-save --ignore-scripts --no-package-lock playwright@1.56.1
+      - name: Find a Chromium browser
+        shell: bash
+        run: |
+          if command -v google-chrome >/dev/null 2>&1; then
+            echo "CHROME_BIN=$(command -v google-chrome)" >> "$GITHUB_ENV"
+          elif command -v chromium >/dev/null 2>&1; then
+            echo "CHROME_BIN=$(command -v chromium)" >> "$GITHUB_ENV"
+          else
+            npx playwright install chromium
+          fi
+      - name: Real Chromium responsive and clipboard E2E
+        env:
+          WINDOWSBRIDGE_VISUAL_DIR: ${{ runner.temp }}/windowsbridge-visual
+        run: node pages/visual.test.mjs
+      - name: Retain real browser screenshots for independent review
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: windowsbridge-visual-preview
+          path: ${{ runner.temp }}/windowsbridge-visual/*.png
+          if-no-files-found: warn
+
   repository-safety:
     runs-on: ubuntu-latest
     steps:
