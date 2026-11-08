@@ -128,9 +128,10 @@ jobs:
             "READ-ONLY WindowsBridge system-information tool",
             "Only that successful call verifies the end-to-end connection.",
             "Name: WindowsBridge",
-            "WindowsBridge  [1/3]  Tunnel",
-            "WindowsBridge  [2/3]  API key",
-            "WindowsBridge  [3/3]  ChatGPT",
+            "WindowsBridge  /  SECURE SETUP",
+            "Write-SetupHeading 1",
+            "Write-SetupHeading 2",
+            "Write-SetupHeading 3",
             "Tunnels -> Read + Use",
             "Create as a plugin",
             "No authentication (NoAuth)"
