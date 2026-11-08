@@ -3,8 +3,7 @@ name: CI
 on:
   push:
     branches: [main, stable]
-  pull_request:
-    branches: [main, stable]
+  pull_request: # Run checks on stacked preview PRs as well as main/stable PRs
 
 permissions:
   contents: read
@@ -72,6 +71,22 @@ jobs:
       - name: Verify entire onboarding UI without network or real secrets
         shell: powershell
         run: .\tests\onboarding_flow_integration.ps1
+      - name: Verify native WPF three-stage UI, CLI fallback and key masking
+        shell: powershell
+        run: .\tests\graphical_setup_integration.ps1
+      - name: Render native WPF wizard snapshots with fixture data only
+        shell: powershell
+        run: .\tests\render_setup_snapshots.ps1
+      - name: Retain native WPF screenshot evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: windowsbridge-native-wpf-preview
+          path: ci-artifacts/wpf-step*.png
+          retention-days: 7
+          if-no-files-found: error
+      - name: Validate copied Win+R launcher on Windows PowerShell 5.1
+        shell: powershell
+        run: .\tests\launcher_contract_integration.ps1
 
       - name: Verify signed release asset digest
         shell: powershell
@@ -126,9 +141,10 @@ jobs:
             "READ-ONLY WindowsBridge system-information tool",
             "Only that successful call verifies the end-to-end connection.",
             "Name: WindowsBridge",
-            "WindowsBridge  [1/3]  Tunnel",
-            "WindowsBridge  [2/3]  API key",
-            "WindowsBridge  [3/3]  ChatGPT",
+            "WindowsBridge  /  SECURE SETUP",
+            "Write-SetupHeading 1",
+            "Write-SetupHeading 2",
+            "Write-SetupHeading 3",
             "Tunnels -> Read + Use",
             "Create as a plugin",
             "No authentication (NoAuth)"
@@ -203,6 +219,34 @@ jobs:
           if (-not $installer.Contains('supervisor.py')) { throw "Installer must deploy the long-lived supervisor." }
           if (-not $ctl.Contains('update-status')) { throw "Control CLI must expose update state." }
 
+  visual-browser-e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Install pinned Playwright harness
+        run: npm install --no-save --ignore-scripts --no-package-lock playwright@1.56.1
+      - name: Find a Chromium browser
+        shell: bash
+        run: |
+          if command -v google-chrome >/dev/null 2>&1; then
+            echo "CHROME_BIN=$(command -v google-chrome)" >> "$GITHUB_ENV"
+          elif command -v chromium >/dev/null 2>&1; then
+            echo "CHROME_BIN=$(command -v chromium)" >> "$GITHUB_ENV"
+          else
+            npx playwright install chromium
+          fi
+      - name: Real Chromium responsive and clipboard E2E
+        env:
+          WINDOWSBRIDGE_VISUAL_DIR: ${{ runner.temp }}/windowsbridge-visual
+        run: node pages/visual.test.mjs
+      - name: Retain real browser screenshots for independent review
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: windowsbridge-visual-preview
+          path: ${{ runner.temp }}/windowsbridge-visual/*.png
+          if-no-files-found: warn
+
   repository-safety:
     runs-on: ubuntu-latest
     steps:
@@ -233,3 +277,24 @@ jobs:
         run: |
           node --test pages/site.test.mjs
           bash pages/build-site.sh "$RUNNER_TEMP/windowsbridge-pages"
+      - name: Package immutable isolated Pages preview
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/windowsbridge-pages"
+          test "$(find "$out" -maxdepth 1 -type f | wc -l)" -eq 4
+          (
+            cd "$out"
+            sha256sum _worker.js index.html style.css app.js > SHA256SUMS
+            printf 'github_repo=ZTD38F/WindowsBridge\nsource_commit=%s\nci_tested_checkout_commit=%s\nsource_branch=%s\npreview_only=true\nproduction_deploy=false\nrequired_preview_REDIRECT_URL=https://raw.githubusercontent.com/ZTD38F/WindowsBridge/stable/install.ps1\n' \
+              "${{ github.event.pull_request.head.sha || github.sha }}" "$(git -C "$GITHUB_WORKSPACE" rev-parse HEAD)" "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" > PREVIEW_MANIFEST.txt
+            sha256sum -c SHA256SUMS
+          )
+      - name: Preserve independently verified preview package
+        if: success()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: windowsbridge-pages-preview
+          path: ${{ runner.temp }}/windowsbridge-pages/
+          if-no-files-found: error
+          retention-days: 14

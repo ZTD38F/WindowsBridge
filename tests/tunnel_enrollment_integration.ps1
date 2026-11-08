@@ -20,6 +20,14 @@ if (-not $functionNode) {
 }
 Invoke-Expression $functionNode.Extent.Text
 
+$headingNode = $ast.Find({
+    param($node)
+    $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and
+        $node.Name -eq "Write-SetupHeading"
+}, $true)
+if (-not $headingNode) { throw "Production Write-SetupHeading function was not found." }
+Invoke-Expression $headingNode.Extent.Text
+
 $script:OpenedUrls = [System.Collections.Generic.List[string]]::new()
 $script:Responses = [System.Collections.Generic.Queue[string]]::new()
 $script:Responses.Enqueue("not-a-tunnel")
@@ -51,12 +59,15 @@ if ($script:OpenedUrls.Count -ne 1 -or
 
 $source = Get-Content -LiteralPath $installerPath -Raw
 foreach ($requiredText in @(
-    "WindowsBridge  [1/3]  Tunnel",
+    "Write-SetupHeading 1",
+    "WindowsBridge  /  SECURE SETUP",
     "Reuse your tunnel, or create one named WindowsBridge.",
     "Platform organization and ChatGPT workspace.",
-    "Paste its tunnel_... ID below (not the API key).",
+    "Copy the Tunnel ID, not an API key.",
+    "Format: tunnel_ followed by 32 lowercase hex characters.",
     "Tunnels: Read + Manage.",
-    "Invalid ID: expected tunnel_ + 32 lowercase hex characters."
+    "Invalid ID. Expected tunnel_ + 32 lowercase hex characters.",
+    "Copy the tunnel ID from Platform; do not paste a key."
 )) {
     if (-not $source.Contains($requiredText)) {
         throw "Guided enrollment is missing required text: $requiredText"

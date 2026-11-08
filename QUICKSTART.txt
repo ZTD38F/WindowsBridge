@@ -50,3 +50,14 @@ UNINSTALL (REMOVES LOCAL BRIDGE AND TASKS)
 Review the official uninstaller file before running it locally.
 
 https://raw.githubusercontent.com/ZTD38F/WindowsBridge/stable/uninstall.ps1
+
+
+DRAFT GRAPHICAL WIZARD (PR #40 ONLY)
+-----------------------------------
+On an interactive Windows PowerShell 5.1 desktop, the proposed installer
+opens a WPF wizard for Tunnel ID and a masked Restricted API key, then shows
+the ChatGPT plugin instructions after local tunnel readiness.
+Use -ConsoleSetup to retain the original console prompts.
+Noninteractive and auto-update runs do not open a GUI. Installing and
+downloading still report progress in the PowerShell console.
+No graphical changes are released to stable yet.

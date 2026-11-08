@@ -3,6 +3,45 @@ export default { fetch: async function routedFetch(request, env, ctx) {
   const target = env?.REDIRECT_URL;
   if (!target) return new Response('REDIRECT_URL not set', {status:500});
 
+  // Site UX is served only to browser document requests or explicit setup paths.
+  // The Win+R / CLI contract remains unchanged: GET / and /install.ps1 without
+  // an HTML Accept header still return the exact fresh PowerShell source.
+  const pathname = new URL(request.url).pathname;
+  const isHtmlNavigation = (request.headers.get('Accept') || '').toLowerCase().includes('text/html');
+  const isSetupPage = pathname === '/setup' || pathname === '/setup/' || pathname === '/index.html';
+  const isBrowserHome = pathname === '/' && isHtmlNavigation;
+  const isAsset = pathname === '/style.css' || pathname === '/app.js';
+  if ((request.method === 'GET' || request.method === 'HEAD')
+      && (isSetupPage || isBrowserHome || isAsset)) {
+    if (typeof env?.ASSETS?.fetch !== 'function') {
+      return new Response('Setup UI unavailable', {
+        status:503, headers:{'Cache-Control':'no-store','Content-Type':'text/plain; charset=utf-8'}
+      });
+    }
+    const assetPath = isAsset ? pathname : '/index.html';
+    const assetUrl = new URL(assetPath, request.url);
+    const response = await env.ASSETS.fetch(new Request(assetUrl, {method:request.method}));
+    if (!response.ok) {
+      return new Response('Setup UI unavailable', {
+        status:503, headers:{'Cache-Control':'no-store','Content-Type':'text/plain; charset=utf-8'}
+      });
+    }
+    const headers = new Headers(response.headers);
+    headers.set('Content-Type', isAsset
+      ? pathname.endsWith('.css') ? 'text/css; charset=utf-8' : 'application/javascript; charset=utf-8'
+      : 'text/html; charset=utf-8');
+    headers.set('Cache-Control','no-store');
+    headers.set('X-Content-Type-Options','nosniff');
+    headers.set('Referrer-Policy','no-referrer');
+    headers.set('X-Frame-Options','DENY');
+    headers.set('Content-Security-Policy',
+      "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; " +
+      "connect-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'");
+    return new Response(request.method === 'HEAD' ? null : response.body, {
+      status:200, headers
+    });
+  }
+
   // Historical CLI-Wrangler (2026-05-17) used ?<random-number> to bypass
   // GitHub's edge cache. Generate SIX digits, preserving existing query data.
   // This is deliberately done BEFORE the initial upstream fetch: adding a

@@ -5,8 +5,8 @@ src="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 dst="$1"
 if [[ -e "$dst" ]]; then echo "Refusing to overwrite existing output" >&2; exit 3; fi
 mkdir -p "$dst"
-for f in _worker.js index.html; do
+for f in _worker.js index.html style.css app.js; do
   test -s "$src/$f"; cp -- "$src/$f" "$dst/$f"
 done
 node --check "$dst/_worker.js"
-printf 'Built 2 allowlisted Mode 2 Pages assets in %s\n' "$dst"
+printf 'Built 4 allowlisted WindowsBridge Pages assets in %s\n' "$dst"

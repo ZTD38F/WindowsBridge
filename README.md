@@ -142,3 +142,25 @@ Uninstall removes WindowsBridge, its runtime task, update task, and global contr
 Current line: **0.3.0 RC**.
 
 The repository and Windows GitHub Actions are tested. A real fresh-machine Windows end-to-end installation is still required before calling 0.3.0 production-final.
+
+
+## Draft Windows graphical onboarding (PR #40 only)
+
+The unmerged draft installer now provides a native dark WPF wizard for interactive
+Windows PowerShell 5.1 setup: Tunnel ID -> Restricted API key -> ChatGPT plugin
+instructions. The password entry uses a masked WPF PasswordBox; no credentials
+are sent to the website. Installation, OpenAI tunnel doctor, readiness checks,
+secret storage, updates and rollback still use the existing PowerShell runtime.
+
+- An interactive STA desktop session uses the graphical wizard automatically.
+- Use -ConsoleSetup for the existing console wizard, including elevated relaunch.
+- Noninteractive sessions, system services and automatic updates never open WPF.
+- Cancel aborts setup; the separate Console mode button explicitly switches
+  to the existing safe console prompts.
+- The installer still uses PowerShell/console text for long-running download
+  and runtime phases. A fully graphical install-progress engine is NOT
+  claimed, and a read-only ChatGPT tool call is required for real MCP E2E.
+
+The new interface is only on draft PR #40. The public stable installer and
+the running PC stay unchanged until separately authorized and independently
+verified release gates are satisfied.
