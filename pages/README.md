@@ -15,7 +15,7 @@ The published Pages site currently responds with PowerShell source for browser a
 | `POST` | HTTP 405 |
 | Browser UI but missing `ASSETS` binding | HTTP 503, no fallback to raw script |
 
-The script origin is currently `https://raw.githubusercontent.com/ZTD38F/WindowsBridge/main/install.ps1`, kept for compatibility with the existing Cloudflare configuration. The **Copy command** in the UI uses the separate `stable/install.ps1` release channel so that the selected source matches the installer's default channel. The display never asks for an API key or tunnel identifier; these remain inside the native PowerShell installer.
+This preview's **intended** script origin is `https://raw.githubusercontent.com/ZTD38F/WindowsBridge/stable/install.ps1`, matching the UI **Copy command** and the installer's default channel. Existing production still uses `main` and is unchanged. A preview deployment MUST explicitly configure `REDIRECT_URL` to the stable URL; do not use the production binding unchanged. The display never asks for an API key or tunnel identifier; these remain inside the native PowerShell installer.
 
 The existing Worker continues to validate upstream HTTPS targets, follow at most two safe redirects, prefer GitHub Atom commit pinning and SHA-identified source content, and return no-store / no-sniff responses. New static assets are explicitly allowlisted; the browser UI uses a strict same-origin CSP, no analytics, no trackers and no network calls. The generated core from `ZTD38F/Cloudflare-Pages-Router` remains intact underneath the small preview-only dispatch branch; avoid overwriting the local hook with a generator refresh until integrated upstream.
 
