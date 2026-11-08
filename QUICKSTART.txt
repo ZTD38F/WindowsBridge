@@ -20,17 +20,22 @@ FIRST INSTALL
 -------------
 1. UAC -> Yes.
 2. OpenAI Tunnels opens.
-   Name: WindowsBridge - <COMPUTERNAME>
-   Copy tunnel_... and paste it into PowerShell.
+   Select the correct Platform organization; reuse an existing tunnel if suitable.
+   Otherwise create WindowsBridge - <COMPUTERNAME>.
+   Associate it with that Platform organization and your target ChatGPT workspace.
+   Copy tunnel_... and paste it into PowerShell (not an API key).
 3. Runtime API Keys opens.
    Name: WindowsBridge Runtime - <COMPUTERNAME>
    Restricted -> Tunnels: Read + Use
    Paste the key into the hidden prompt.
 4. WindowsBridge installs and waits until the tunnel is READY.
-5. ChatGPT Connectors opens.
+5. ChatGPT Plugins opens: https://chatgpt.com/plugins
+   Select + -> Add custom MCP server.
    Name: WindowsBridge - <COMPUTERNAME>
-   Connection: Tunnel
-   Authentication: No authentication (NoAuth)
+   Connection: Tunnel (select the same tunnel)
+   MCP authentication: No authentication (NoAuth)
+   Install the plugin. Call a READ-ONLY system information tool from ChatGPT.
+   Only a successful tool call verifies the complete connection.
 
 AUTO UPDATE
 -----------
