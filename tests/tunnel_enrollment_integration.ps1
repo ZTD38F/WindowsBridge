@@ -51,7 +51,7 @@ if ($script:OpenedUrls.Count -ne 1 -or
 
 $source = Get-Content -LiteralPath $installerPath -Raw
 foreach ($requiredText in @(
-    "WindowsBridge  |  1/3  |  Tunnel",
+    "WindowsBridge  [1/3]  Tunnel",
     "Reuse your tunnel, or create one named WindowsBridge.",
     "Platform organization and ChatGPT workspace.",
     "Paste its tunnel_... ID below (not the API key).",
