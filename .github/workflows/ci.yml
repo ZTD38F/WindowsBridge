@@ -263,3 +263,24 @@ jobs:
         run: |
           node --test pages/site.test.mjs
           bash pages/build-site.sh "$RUNNER_TEMP/windowsbridge-pages"
+      - name: Package immutable isolated Pages preview
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/windowsbridge-pages"
+          test "$(find "$out" -maxdepth 1 -type f | wc -l)" -eq 4
+          (
+            cd "$out"
+            sha256sum _worker.js index.html style.css app.js > SHA256SUMS
+            printf 'github_repo=ZTD38F/WindowsBridge\nsource_commit=%s\nsource_branch=%s\npreview_only=true\nproduction_deploy=false\nrequired_preview_REDIRECT_URL=https://raw.githubusercontent.com/ZTD38F/WindowsBridge/stable/install.ps1\n' \
+              "$(git -C "$GITHUB_WORKSPACE" rev-parse HEAD)" "$GITHUB_HEAD_REF" > PREVIEW_MANIFEST.txt
+            sha256sum -c SHA256SUMS
+          )
+      - name: Preserve independently verified preview package
+        if: success()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: windowsbridge-pages-preview
+          path: ${{ runner.temp }}/windowsbridge-pages/
+          if-no-files-found: error
+          retention-days: 14
